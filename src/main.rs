@@ -21,7 +21,7 @@ fn copy_templates_to_output(
         .unwrap()
         .parent()
         .unwrap();
-    let templates_dir = exe_dir.join("templates");
+    let templates_dir = exe_dir.join("project-template");
 
     // Create output directory structure first
     fs::create_dir_all(output_dir.join("src"))?;
@@ -119,37 +119,13 @@ pub extern "C" fn {func}() {{
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 4 || args.len() > 6 {
-        eprintln!(
-            "Usage: {} <input.so> <output_dir> <header.h> [--lib-path <path>]",
-            args[0]
-        );
+        eprintln!("Usage: {} <input.so> <output_dir> <header.h>", args[0]);
         std::process::exit(1);
     }
 
     let so_path = &args[1];
     let output_dir = PathBuf::from(&args[2]);
     let header_path = args[3].clone();
-    let mut lib_path_override = None;
-
-    let mut i = 4;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--lib-path" => {
-                if i + 1 < args.len() {
-                    lib_path_override = Some(args[i + 1].clone());
-                    i += 2;
-                } else {
-                    eprintln!("Error: --lib-path requires a path argument");
-                    std::process::exit(1);
-                }
-            }
-            _ => {
-                eprintln!("Error: unexpected argument '{}'", args[i]);
-                std::process::exit(1);
-            }
-        }
-        i += 1;
-    }
 
     let buffer = fs::read(so_path)?;
     let elf = Elf::parse(&buffer)?;
@@ -165,13 +141,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("Found {} functions", functions.len());
-
     // Get function signatures from header provider
     println!("Using header file: {}", header_path);
     let provider: Box<dyn SignatureProvider> = Box::new(HeaderProvider::new(header_path));
-
-    let signatures = provider.get_signatures(&elf, &buffer).unwrap_or_default();
+    let signatures = provider.get_signatures(so_path).unwrap_or_default();
     println!("Parsed {} function signatures", signatures.len());
 
     // Copy templates to output directory
@@ -181,9 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let function_stubs = generate_function_stubs(&functions, &signatures)?;
 
     // Determine the library path to embed
-    let lib_path = if let Some(override_path) = lib_path_override {
-        override_path
-    } else if std::path::Path::new(so_path).is_absolute() {
+    let lib_path = if std::path::Path::new(so_path).is_absolute() {
         so_path.to_string()
     } else {
         // For relative paths, assume from output_dir/src/, go up and then to so_path

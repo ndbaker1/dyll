@@ -39,8 +39,7 @@ impl HeaderProvider {
 impl SignatureProvider for HeaderProvider {
     fn get_signatures(
         &self,
-        _elf: &goblin::elf::Elf,
-        _buffer: &[u8],
+        _so_path: &str,
     ) -> Result<HashMap<String, FunctionSignature>, Box<dyn std::error::Error>> {
         self.get_signatures_from_header_only()
     }
