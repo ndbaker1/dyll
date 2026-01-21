@@ -1,0 +1,4 @@
+/target
+tests/libtest.so
+tests/test_output/
+tests/test_program*

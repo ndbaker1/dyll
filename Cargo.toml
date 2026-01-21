@@ -1,0 +1,12 @@
+[package]
+name = "slibbery"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+goblin = "0.10.4"
+gimli = "0.31"
+regex = "1.10"
+
+[dev-dependencies]
+tempfile = "3.0"
