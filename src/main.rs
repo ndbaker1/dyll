@@ -9,34 +9,21 @@ use slibbery::{
     FunctionSignature,
 };
 
+// Embedded templates
+const CARGO_TOML_TEMPLATE: &str = include_str!("../project-template/Cargo.toml");
+const LIB_RS_TEMPLATE: &str = include_str!("../project-template/src/lib.rs");
+
 fn copy_templates_to_output(
     output_dir: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // Templates are in the same directory as the binary
-    let exe_path = std::env::current_exe()?;
-    let exe_dir = exe_path
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap();
-    let templates_dir = exe_dir.join("project-template");
-
     // Create output directory structure first
     fs::create_dir_all(output_dir.join("src"))?;
 
-    // Copy Cargo.toml template
-    fs::copy(
-        templates_dir.join("Cargo.toml"),
-        output_dir.join("Cargo.toml"),
-    )?;
+    // Write Cargo.toml template
+    fs::write(output_dir.join("Cargo.toml"), CARGO_TOML_TEMPLATE)?;
 
-    // Copy src/lib.rs template
-    fs::copy(
-        templates_dir.join("src/lib.rs"),
-        output_dir.join("src/lib.rs"),
-    )?;
+    // Write src/lib.rs template
+    fs::write(output_dir.join("src/lib.rs"), LIB_RS_TEMPLATE)?;
 
     Ok(())
 }
