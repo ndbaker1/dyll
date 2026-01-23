@@ -42,7 +42,7 @@ fn load_embedded_lib() -> *mut c_void {
         let path = format!("/proc/self/fd/{}\0", fd);
 
         // Load library from memfd
-        let handle = libc::dlopen(path.as_ptr() as *const i8, libc::RTLD_LAZY);
+        let handle = libc::dlopen(path.as_ptr() as *const c_char, libc::RTLD_LAZY);
         if handle.is_null() {
             panic!("Failed to dlopen embedded library");
         }
@@ -58,7 +58,7 @@ fn get_lib() -> *mut c_void {
 
 fn get_symbol(name: &[u8]) -> *const c_void {
     let handle = get_lib();
-    let sym =  unsafe { libc::dlsym(handle, name.as_ptr() as *const i8) };
+    let sym =  unsafe { libc::dlsym(handle, name.as_ptr() as *const c_char) };
     if sym.is_null() {
         panic!("Symbol not found: {}", std::str::from_utf8(name).unwrap());
     }
