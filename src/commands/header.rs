@@ -1,20 +1,20 @@
-use tracing::{debug, info};
+use tracing::info;
 
 use crate::cli::{Cli, HeaderArgs};
 use crate::elf;
 use crate::generator;
-use crate::providers::SignatureProvider;
 use crate::providers::header::BindgenProvider;
+use crate::providers::SignatureProvider;
 use crate::template;
 
 pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error>> {
-    debug!("processing library: {}", cli.lib_path.display());
-
     let functions = elf::extract_function_symbols(&cli.lib_path)?;
 
-    info!("detected {} function symbols", functions.len());
-
-    info!("using header file: {}", args.header_file.display());
+    info!(
+        "found {} function symbols in {}",
+        functions.len(),
+        cli.lib_path.display(),
+    );
 
     let provider = BindgenProvider::new(args.header_file.to_str().unwrap().to_string());
     let bindgen_result = provider
@@ -22,8 +22,9 @@ pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error
         .unwrap_or_default();
 
     info!(
-        "parsed {} function signatures",
-        bindgen_result.signatures.len()
+        "found {} function signatures in {}",
+        bindgen_result.signatures.len(),
+        args.header_file.display(),
     );
 
     let (known_stubs, unknown_stubs) =

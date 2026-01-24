@@ -79,10 +79,11 @@ impl BindgenProvider {
         let syntax_tree = parse_str::<syn::File>(&generated_code)?;
 
         let mut bindings_parts = Vec::new();
+        let mut extern_c_blocks = Vec::new();
 
         for item in syntax_tree.items {
             match item {
-                Item::ForeignMod(foreign_mod) => {
+                Item::ForeignMod(ref foreign_mod) => {
                     // Check if it's extern "C"
                     let is_extern_c = foreign_mod
                         .abi
@@ -91,6 +92,7 @@ impl BindgenProvider {
                         .map(|n| n.value() == "C")
                         .unwrap_or(false);
                     if is_extern_c {
+                        // Extract function signatures from extern "C" blocks
                         for foreign_item in &foreign_mod.items {
                             if let ForeignItem::Fn(func) = foreign_item {
                                 let func_name = func.sig.ident.to_string();
@@ -116,17 +118,28 @@ impl BindgenProvider {
                                 );
                             }
                         }
+                        // Store extern "C" blocks to filter them out later
+                        extern_c_blocks.push(format!("{}", quote::quote!(#item)));
+                    } else {
+                        // Non-C extern blocks go into bindings
+                        bindings_parts.push(format!("{}", quote::quote!(#item)));
                     }
-                    // Don't include extern "C" blocks in bindings
                 }
                 _ => {
                     // Other items like type definitions, consts, etc.
-                    bindings_parts.push(quote::quote!(#item).to_string());
+                    bindings_parts.push(format!("{}", quote::quote!(#item)));
                 }
             }
         }
 
-        let bindings_code = bindings_parts.join("\n");
+        // Create bindings code by filtering out extern "C" blocks from original generated code
+        let mut bindings_code = generated_code.clone();
+        for extern_block in &extern_c_blocks {
+            bindings_code = bindings_code.replace(extern_block, "");
+        }
+
+        // Clean up any extra whitespace
+        bindings_code = bindings_code.trim().to_string();
 
         Ok(BindgenResult {
             signatures,

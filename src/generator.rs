@@ -1,3 +1,6 @@
+use quote::{format_ident, quote};
+use syn::{parse_str, Ident, Type};
+
 use crate::FunctionSignature;
 use std::collections::HashMap;
 
@@ -9,69 +12,53 @@ pub fn generate_function_stubs(
     let mut unknown_stubs = String::new();
 
     for func in functions {
+        let func_name: Ident = parse_str(&func)?;
+
         let stub_code = if let Some(sig) = signatures.get(func) {
-            let params_call = if sig.params.is_empty() {
-                "".to_string()
-            } else {
-                (0..sig.params.len())
-                    .map(|i| format!("arg{}", i))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            };
-            let args_def = if sig.params.is_empty() {
-                "()".to_string()
-            } else {
-                format!(
-                    "({})",
-                    (0..sig.params.len())
-                        .map(|i| format!("arg{}: {}", i, sig.params[i]))
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            };
+            let params: Vec<_> = sig
+                .params
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format_ident!("arg{}", i))
+                .collect();
 
-            // {params_str} -> {return_type}
-            format!(
-                r#"
-#[no_mangle]
-pub unsafe extern "C" fn {func}{args_def} -> {return_type} {{
-    let orig: extern "C" fn{args_def} -> {return_type} = std::mem::transmute(get_symbol(b"{func}\0"));
+            let args: Vec<_> = sig
+                .params
+                .iter()
+                .enumerate()
+                .filter_map(|(i, typ)| {
+                    let arg = format_ident!("arg{}", i);
+                    let typ: Type = parse_str(typ).ok()?;
+                    Some(quote! { #arg: #typ })
+                })
+                .collect();
 
-    // add your mock logic here
-    eprintln!("[CALL] {func}");
+            let return_type: Type = parse_str(&sig.return_type)?;
 
-    // forward to original
-    orig({params_call})
-}}
-"#,
-                func = func,
-                args_def = args_def,
-                return_type = sig.return_type,
-                params_call = params_call,
-            )
+            quote! {
+                #[no_mangle]
+                pub unsafe extern "C" fn #func_name(#(#args),*) -> #return_type {
+                    let #func_name: extern "C" fn(#(#args),*) -> #return_type = std::mem::transmute(get_sym(#func));
+                    eprintln!("[CALL] {}", #func);
+                    #func_name(#(#params),*)
+                }
+            }
         } else {
             // Generic stub - unknown signature
-            format!(
-                r#"
-#[no_mangle]
-pub unsafe extern "C" fn {func}() {{
-    let orig: extern "C" fn() = std::mem::transmute(get_symbol(b"{func}\0"));
-
-    // add your mock logic here
-    eprintln!("[CALL] {func}");
-
-    // forward to original
-    orig()
-}}
-"#,
-                func = func
-            )
+            quote! {
+                #[no_mangle]
+                pub unsafe extern "C" fn #func_name() {
+                    let #func_name: extern "C" fn() = std::mem::transmute(get_sym(#func));
+                    eprintln!("[CALL] {}", #func);
+                    #func_name()
+                }
+            }
         };
 
         if signatures.contains_key(func) {
-            known_stubs.push_str(&stub_code);
+            known_stubs.push_str(&stub_code.to_string());
         } else {
-            unknown_stubs.push_str(&stub_code);
+            unknown_stubs.push_str(&stub_code.to_string());
         }
     }
 
