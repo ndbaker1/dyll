@@ -272,7 +272,7 @@ pub unsafe extern "C" fn nvmlSystemGetDriverVersion(
 ) -> nvmlReturn_t {
     eprintln!("[CALL] {}", "nvmlSystemGetDriverVersion");
     std::ptr::copy_nonoverlapping("590-fake\0".as_ptr() as *const c_char, arg0, arg1 as _);
-    0
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetTotalEccErrors(
@@ -387,8 +387,8 @@ pub unsafe extern "C" fn nvmlDeviceSetConfComputeUnprotectedMemSize(
 #[no_mangle]
 pub unsafe extern "C" fn nvmlSystemGetCudaDriverVersion_v2(arg0: *mut c_int) -> nvmlReturn_t {
     eprintln!("[CALL] {}", "nvmlSystemGetCudaDriverVersion_v2");
-    arg0.write(1320);
-    0
+    *arg0 = 13200;
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetPowerManagementLimit(
@@ -1166,7 +1166,7 @@ pub unsafe extern "C" fn nvmlDeviceGetHandleBySerial(
 #[no_mangle]
 pub unsafe extern "C" fn nvmlInitWithFlags(_arg0: c_uint) -> nvmlReturn_t {
     eprintln!("[CALL] {}", "nvmlInitWithFlags");
-    0
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlSystemGetConfComputeState(
@@ -1341,11 +1341,9 @@ pub unsafe extern "C" fn nvmlGetVgpuDriverCapabilities(
     nvmlGetVgpuDriverCapabilities(arg0, arg1)
 }
 #[no_mangle]
-pub unsafe extern "C" fn nvmlEventSetCreate(arg0: *mut nvmlEventSet_t) -> nvmlReturn_t {
-    let nvmlEventSetCreate: extern "C" fn(arg0: *mut nvmlEventSet_t) -> nvmlReturn_t =
-        std::mem::transmute(get_sym("nvmlEventSetCreate"));
+pub unsafe extern "C" fn nvmlEventSetCreate(_arg0: *mut nvmlEventSet_t) -> nvmlReturn_t {
     eprintln!("[CALL] {}", "nvmlEventSetCreate");
-    nvmlEventSetCreate(arg0)
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetBoardPartNumber(
@@ -1389,15 +1387,11 @@ pub unsafe extern "C" fn nvmlVgpuInstanceSetEncoderCapacity(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetHandleByIndex_v2(
-    arg0: c_uint,
-    arg1: *mut nvmlDevice_t,
+    _arg0: c_uint,
+    _arg1: *mut nvmlDevice_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetHandleByIndex_v2: extern "C" fn(
-        arg0: c_uint,
-        arg1: *mut nvmlDevice_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetHandleByIndex_v2"));
     eprintln!("[CALL] {}", "nvmlDeviceGetHandleByIndex_v2");
-    nvmlDeviceGetHandleByIndex_v2(arg0, arg1)
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlSystemGetConfComputeCapabilities(
@@ -2308,15 +2302,11 @@ pub unsafe extern "C" fn nvmlDeviceGetEnforcedPowerLimit(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetPciInfo_v3(
-    arg0: nvmlDevice_t,
-    arg1: *mut nvmlPciInfo_t,
+    _arg0: nvmlDevice_t,
+    _arg1: *mut nvmlPciInfo_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetPciInfo_v3: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut nvmlPciInfo_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetPciInfo_v3"));
     eprintln!("[CALL] {}", "nvmlDeviceGetPciInfo_v3");
-    nvmlDeviceGetPciInfo_v3(arg0, arg1)
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetOfaUtilization(
@@ -2782,10 +2772,8 @@ pub unsafe extern "C" fn nvmlComputeInstanceGetInfo_v2(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetCount_v2(arg0: *mut c_uint) -> nvmlReturn_t {
-    let nvmlDeviceGetCount_v2: extern "C" fn(arg0: *mut c_uint) -> nvmlReturn_t =
-        std::mem::transmute(get_sym("nvmlDeviceGetCount_v2"));
-    eprintln!("[CALL] {}", "nvmlDeviceGetCount_v2");
-    nvmlDeviceGetCount_v2(arg0)
+    *arg0 = 4;
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceRegisterEvents(
@@ -3106,15 +3094,20 @@ pub unsafe extern "C" fn nvmlDeviceGetTemperature(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetGpuFabricInfoV(
-    arg0: nvmlDevice_t,
+    _arg0: nvmlDevice_t,
     arg1: *mut nvmlGpuFabricInfoV_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetGpuFabricInfoV: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut nvmlGpuFabricInfoV_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetGpuFabricInfoV"));
     eprintln!("[CALL] {}", "nvmlDeviceGetGpuFabricInfoV");
-    nvmlDeviceGetGpuFabricInfoV(arg0, arg1)
+    *arg1 = nvmlGpuFabricInfo_v3_t {
+        version: 0,
+        clusterUuid: [42; 16],
+        status: NVML_SUCCESS,
+        cliqueId: 4242,
+        state: NVML_GPU_FABRIC_STATE_COMPLETED as _,
+        healthMask: 0,
+        healthSummary: NVML_GPU_FABRIC_HEALTH_SUMMARY_HEALTHY as _,
+    };
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetC2cModeInfoV(
@@ -4798,9 +4791,9 @@ pub unsafe extern "C" fn nvmlDeviceGetMPSComputeRunningProcesses() {
     nvmlDeviceGetMPSComputeRunningProcesses()
 }
 #[no_mangle]
-pub unsafe extern "C" fn nvmlInternalGetExportTable() -> c_int {
+pub unsafe extern "C" fn nvmlInternalGetExportTable() -> nvmlReturn_t {
     eprintln!("[CALL] {}", "nvmlInternalGetExportTable");
-    0
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetCount() {
