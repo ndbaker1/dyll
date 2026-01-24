@@ -69,6 +69,8 @@ impl BindgenProvider {
             .header(&self.header_path)
             .generate_comments(false)
             .layout_tests(false)
+            .default_enum_style(bindgen::EnumVariation::Consts)
+            .prepend_enum_name(false)
             .sort_semantically(true)
             .clang_args(&["-x", "c-header"])
             .generate()

@@ -1,20 +1,24 @@
+use libc::c_char;
+use std::ffi::c_void;
 use std::sync::Once;
 
-#[allow(unused_imports)]
-#[allow(non_snake_case)]
-use libc::*;
+pub fn get_symbol(name: &[u8]) -> *const c_void {
+    let handle = load_embedded_lib();
+    let sym = unsafe { libc::dlsym(handle, name.as_ptr() as *const c_char) };
+    if sym.is_null() {
+        panic!("Symbol not found: {}", std::str::from_utf8(name).unwrap());
+    }
+    sym
+}
 
-// Bindgen-generated bindings
-{{BINDGEN_BINDINGS}}
-
-// Embed original library
-{{LIB_INCLUDE}}
+// the original shared library embedded in the program's static memory.
+const ORIGINAL_SO: &[u8] = include_bytes!(env!("SHARED_LIBRARY_PATH"));
 
 static mut LIB_HANDLE: Option<*mut c_void> = None;
 static INIT: Once = Once::new();
 
 /// Loads the embedded shared library using memfd_create instead of a tempfile.
-/// 
+///
 /// memfd_create creates an anonymous file in memory that can be passed to dlopen.
 /// Benefits over using a temporary file:
 /// - No disk I/O: The library stays in memory, avoiding slow disk writes/reads
@@ -22,7 +26,7 @@ static INIT: Once = Once::new();
 /// - Atomicity: The file is created and used entirely in memory, no filesystem state
 /// - Cleanup: Automatically cleaned up when the process exits, no manual deletion needed
 /// - Performance: Faster loading since no filesystem operations are involved
-/// 
+///
 /// The memfd is created with a name for debugging purposes, then written with the
 /// embedded library bytes. A path like /proc/self/fd/<fd> is constructed for dlopen.
 fn load_embedded_lib() -> *mut c_void {
@@ -34,7 +38,11 @@ fn load_embedded_lib() -> *mut c_void {
         }
 
         // Write library to memfd
-        let written = libc::write(fd as i32, ORIGINAL_SO.as_ptr() as *const c_void, ORIGINAL_SO.len());
+        let written = libc::write(
+            fd as i32,
+            ORIGINAL_SO.as_ptr() as *const c_void,
+            ORIGINAL_SO.len(),
+        );
         if written != ORIGINAL_SO.len() as isize {
             panic!("Failed to write to memfd");
         }
@@ -52,15 +60,3 @@ fn load_embedded_lib() -> *mut c_void {
     });
     unsafe { LIB_HANDLE.unwrap() }
 }
-
-fn get_symbol(name: &[u8]) -> *const c_void {
-    let handle = load_embedded_lib();
-    let sym =  unsafe { libc::dlsym(handle, name.as_ptr() as *const c_char) };
-    if sym.is_null() {
-        panic!("Symbol not found: {}", std::str::from_utf8(name).unwrap());
-    }
-    sym
-}
-
-// Generated function stubs
-{{FUNCTION_STUBS}}

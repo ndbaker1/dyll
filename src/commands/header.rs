@@ -23,12 +23,10 @@ pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error
         bindgen_result.signatures.len()
     );
 
-    template::copy_templates_to_output(&cli.output_dir)?;
-
     let function_stubs =
         generator::generate_function_stubs(&functions, &bindgen_result.signatures)?;
 
-    template::inject_generated_code(
+    template::generate_project(
         &cli.output_dir,
         &cli.lib_path,
         &function_stubs,

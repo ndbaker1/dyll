@@ -1,21 +1,44 @@
+use std::collections::HashMap;
 use std::fs;
-
-const CARGO_TOML_TEMPLATE: &str = include_str!("../project-template/Cargo.toml");
-const LIB_RS_TEMPLATE: &str = include_str!("../project-template/src/lib.rs");
+use std::path::Path;
 
 pub fn copy_templates_to_output(
-    output_dir: &std::path::Path,
+    output_dir: &Path,
+    replacements: &HashMap<String, String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    fs::create_dir_all(output_dir.join("src"))?;
-    fs::write(output_dir.join("Cargo.toml"), CARGO_TOML_TEMPLATE)?;
-    fs::write(output_dir.join("src/lib.rs"), LIB_RS_TEMPLATE)?;
+    fn copy_and_replace(
+        src: &Path,
+        dst: &Path,
+        replacements: &HashMap<String, String>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if src.is_dir() {
+            fs::create_dir_all(dst)?;
+            for entry in fs::read_dir(src)? {
+                let entry = entry?;
+                let src_path = entry.path();
+                let dst_path = dst.join(entry.file_name());
+                copy_and_replace(&src_path, &dst_path, replacements)?;
+            }
+        } else {
+            let mut content = fs::read_to_string(src)?;
+            for (key, value) in replacements {
+                // NOTE: this somewhat hard to read string is just converting
+                // the occurences of {{KEY}} to VALUE.
+                content = content.replace(&format!("{{{{{key}}}}}"), value);
+            }
+            fs::write(dst, content)?;
+        }
+        Ok(())
+    }
 
-    Ok(())
+    // CARGO_MANIFEST_DIR allows us to read the contents of the project.
+    let template_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/project-template");
+    copy_and_replace(&template_path, output_dir, replacements)
 }
 
-pub fn inject_generated_code(
-    output_dir: &std::path::Path,
-    lib_path: &std::path::Path,
+pub fn generate_project(
+    output_dir: &Path,
+    lib_path: &Path,
     function_stubs: &str,
     bindings: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -26,17 +49,12 @@ pub fn inject_generated_code(
         format!("../../{}", lib_path.display())
     };
 
-    let lib_include = format!(
-        "const ORIGINAL_SO: &[u8] = include_bytes!(\"{}\");",
-        lib_path_str
-    );
+    let mut replacements = HashMap::new();
+    replacements.insert("FUNCTION_STUBS".to_string(), function_stubs.to_string());
+    replacements.insert("SHARED_LIBRARY_PATH".to_string(), lib_path_str.to_string());
+    replacements.insert("BINDGEN_BINDINGS".to_string(), bindings.to_string());
 
-    let lib_rs_path = output_dir.join("src/lib.rs");
-    let mut content = fs::read_to_string(&lib_rs_path)?;
-    content = content.replace("{{FUNCTION_STUBS}}", function_stubs);
-    content = content.replace("{{LIB_INCLUDE}}", &lib_include);
-    content = content.replace("{{BINDGEN_BINDINGS}}", bindings);
-    fs::write(&lib_rs_path, content)?;
+    copy_templates_to_output(output_dir, &replacements)?;
 
     Ok(())
 }
