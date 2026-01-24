@@ -1,173 +1,138 @@
-use regex::Regex;
 use std::collections::HashMap;
-use std::fs;
+use syn::{parse_str, FnArg, ForeignItem, Item, PatType, Type};
+
+use crate::BindgenResult;
 
 use super::SignatureProvider;
 use crate::FunctionSignature;
 
-pub fn c_type_to_rust(c_type: &str) -> String {
-    let trimmed = c_type.trim();
-
-    match trimmed {
-        "int" => "c_int".to_string(),
-        "unsigned int" | "unsigned" => "c_uint".to_string(),
-        "long" => "c_long".to_string(),
-        "unsigned long" => "c_ulong".to_string(),
-        "short" => "c_short".to_string(),
-        "unsigned short" => "c_ushort".to_string(),
-        "char" => "c_char".to_string(),
-        "unsigned char" => "c_uchar".to_string(),
-        "float" => "c_float".to_string(),
-        "double" => "c_double".to_string(),
-        "void" => "()".to_string(),
-        "size_t" => "usize".to_string(),
-        t if t.ends_with('*') => "*mut c_void".to_string(),
-        _ => "c_void".to_string(), // fallback for unknown types
+pub fn syn_type_to_rust(ty: &Type) -> String {
+    match ty {
+        Type::Path(type_path) => {
+            // Get the last segment for the type name
+            if let Some(last) = type_path.path.segments.last() {
+                last.ident.to_string()
+            } else {
+                "c_void".to_string()
+            }
+        }
+        Type::Ptr(type_ptr) => {
+            let mutability = if type_ptr.mutability.is_some() {
+                "mut"
+            } else {
+                "const"
+            };
+            let elem = syn_type_to_rust(&type_ptr.elem);
+            format!("*{} {}", mutability, elem)
+        }
+        Type::Tuple(type_tuple) => {
+            if type_tuple.elems.is_empty() {
+                "()".to_string()
+            } else {
+                format!(
+                    "({})",
+                    type_tuple
+                        .elems
+                        .iter()
+                        .map(|t| syn_type_to_rust(t))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
+            }
+        }
+        _ => "c_void".to_string(), // fallback
     }
 }
 
-pub struct HeaderProvider {
+pub struct BindgenProvider {
     header_path: String,
 }
 
-impl HeaderProvider {
+impl BindgenProvider {
     pub fn new(header_path: String) -> Self {
-        HeaderProvider { header_path }
+        BindgenProvider { header_path }
     }
 }
 
-impl SignatureProvider for HeaderProvider {
-    fn get_signatures(
-        &self,
-        _so_path: &str,
-    ) -> Result<HashMap<String, FunctionSignature>, Box<dyn std::error::Error>> {
-        self.get_signatures_from_header_only()
+impl SignatureProvider for BindgenProvider {
+    fn get_signatures(&self, _so_path: &str) -> Result<BindgenResult, Box<dyn std::error::Error>> {
+        self.get_signatures_from_bindgen()
     }
 }
 
-impl HeaderProvider {
-    pub fn get_signatures_from_header_only(
-        &self,
-    ) -> Result<HashMap<String, FunctionSignature>, Box<dyn std::error::Error>> {
+impl BindgenProvider {
+    pub fn get_signatures_from_bindgen(&self) -> Result<BindgenResult, Box<dyn std::error::Error>> {
         let mut signatures = HashMap::new();
 
-        // Read header file
-        let content = fs::read_to_string(&self.header_path)?;
+        // Use bindgen to generate bindings from the header
+        let bindings = bindgen::Builder::default()
+            .header(&self.header_path)
+            .generate_comments(false)
+            .layout_tests(false)
+            .sort_semantically(true)
+            .clang_args(&["-x", "c-header"])
+            .generate()
+            .map_err(|e| format!("Bindgen failed: {}", e))?;
 
-        // First pass: learn about type definitions (enums, typedefs)
-        let type_map = self.parse_type_definitions(&content)?;
+        let generated_code = bindings.to_string();
 
-        // Second pass: parse function declarations
-        let func_regex = Regex::new(
-            r"(?m)^\s*([a-zA-Z_][a-zA-Z0-9_*\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]+)\s*\(([^)]*)\)\s*;",
-        )?;
+        // Parse the generated code with syn
+        let syntax_tree = parse_str::<syn::File>(&generated_code)?;
 
-        for cap in func_regex.captures_iter(&content) {
-            let mut return_type = cap[1].trim().to_string();
-            // Remove known macros from return type
-            return_type = return_type.replace(" DECLDIR", "");
-            let func_name = cap[2].trim().to_string();
-            let params_str = cap[3].trim();
+        let mut bindings_parts = Vec::new();
 
-            // Parse parameters
-            let mut params = Vec::new();
-            if !params_str.is_empty() && params_str != "void" {
-                for param in params_str.split(',') {
-                    let param = param.trim();
-                    if !param.is_empty() {
-                        // Extract type by removing the variable name
-                        let type_str = self.extract_type_from_param(param);
-                        params.push(self.resolve_type(&type_str, &type_map));
+        for item in syntax_tree.items {
+            match item {
+                Item::ForeignMod(foreign_mod) => {
+                    // Check if it's extern "C"
+                    let is_extern_c = foreign_mod
+                        .abi
+                        .name
+                        .as_ref()
+                        .map(|n| n.value() == "C")
+                        .unwrap_or(false);
+                    if is_extern_c {
+                        for foreign_item in &foreign_mod.items {
+                            if let ForeignItem::Fn(func) = foreign_item {
+                                let func_name = func.sig.ident.to_string();
+                                let return_type = match &func.sig.output {
+                                    syn::ReturnType::Default => "()".to_string(),
+                                    syn::ReturnType::Type(_, ty) => syn_type_to_rust(ty),
+                                };
+                                let mut params = Vec::new();
+
+                                for arg in &func.sig.inputs {
+                                    if let FnArg::Typed(PatType { ty, .. }) = arg {
+                                        params.push(syn_type_to_rust(ty));
+                                    }
+                                }
+
+                                signatures.insert(
+                                    func_name.clone(),
+                                    FunctionSignature {
+                                        name: func_name,
+                                        params,
+                                        return_type,
+                                    },
+                                );
+                            }
+                        }
                     }
+                    // Don't include extern "C" blocks in bindings
+                }
+                _ => {
+                    // Other items like type definitions, consts, etc.
+                    bindings_parts.push(quote::quote!(#item).to_string());
                 }
             }
-
-            signatures.insert(
-                func_name.clone(),
-                FunctionSignature {
-                    name: func_name,
-                    params,
-                    return_type: self.resolve_type(&return_type, &type_map),
-                },
-            );
         }
 
-        Ok(signatures)
-    }
+        let bindings_code = bindings_parts.join("\n");
 
-    fn parse_type_definitions(
-        &self,
-        content: &str,
-    ) -> Result<HashMap<String, String>, Box<dyn std::error::Error>> {
-        let mut type_map = HashMap::new();
-
-        // Parse enum typedefs like: } nvmlReturn_t;
-        let enum_typedef_regex = Regex::new(r"(?m)}\s*([a-zA-Z_][a-zA-Z0-9_]+)\s*;")?;
-        for cap in enum_typedef_regex.captures_iter(content) {
-            let enum_name = cap[1].to_string();
-            type_map.insert(enum_name, "enum".to_string());
-        }
-
-        // Parse simple typedefs like: typedef int nvmlReturn_t;
-        let typedef_regex = Regex::new(
-            r"(?m)^\s*typedef\s+([a-zA-Z_][a-zA-Z0-9_*\s]+)\s+([a-zA-Z_][a-zA-Z0-9_]+)\s*;",
-        )?;
-        for cap in typedef_regex.captures_iter(content) {
-            let base_type = cap[1].trim().to_string();
-            let alias_name = cap[2].trim().to_string();
-            type_map.insert(alias_name, base_type);
-        }
-
-        Ok(type_map)
-    }
-
-    fn extract_type_from_param(&self, param: &str) -> String {
-        let parts: Vec<&str> = param.split_whitespace().collect();
-        if parts.len() <= 1 {
-            // No variable name part, return as-is
-            param.to_string()
-        } else {
-            let mut type_parts = Vec::new();
-            for i in 0..parts.len() - 1 {
-                type_parts.push(parts[i]);
-            }
-            // If the variable name starts with '*', it means the '*' is part of the type
-            if parts.last().unwrap().starts_with('*') {
-                type_parts.push("*");
-            }
-            type_parts.join(" ")
-        }
-    }
-
-    fn resolve_type(&self, c_type: &str, type_map: &HashMap<String, String>) -> String {
-        let mut trimmed = c_type.trim().to_string();
-
-        // Strip leading "const" as we don't distinguish const in this tool
-        if trimmed.starts_with("const ") {
-            trimmed = trimmed.trim_start_matches("const ").trim().to_string();
-        }
-
-        // Normalize pointer syntax: replace " *" with "*"
-        trimmed = trimmed.replace(" *", "*");
-
-        // Check if it's a known typedef
-        if let Some(base_type) = type_map.get(&trimmed) {
-            if base_type == "enum" {
-                return "c_int".to_string(); // enums are typically int-sized
-            } else {
-                return self.resolve_type(base_type, type_map); // recursively resolve
-            }
-        }
-
-        // Handle pointer types: extract base type and create proper Rust pointer
-        if trimmed.ends_with('*') {
-            let base_type = trimmed.trim_end_matches('*').trim();
-            let rust_base = self.resolve_type(base_type, type_map);
-            return format!("*mut {}", rust_base);
-        }
-
-        // Fall back to the original mapping
-        c_type_to_rust(&trimmed)
+        Ok(BindgenResult {
+            signatures,
+            bindings: bindings_code,
+        })
     }
 }
 
@@ -178,7 +143,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
-    fn test_header_provider_simple_function() {
+    fn test_bindgen_provider_simple_function() {
         let header_content = r#"
 int add(int a, int b);
 void print_hello(void);
@@ -187,24 +152,24 @@ void print_hello(void);
         let temp_file = NamedTempFile::new().unwrap();
         fs::write(&temp_file, header_content).unwrap();
 
-        let provider = HeaderProvider::new(temp_file.path().to_str().unwrap().to_string());
-        let signatures = provider.get_signatures_from_header_only().unwrap();
+        let provider = BindgenProvider::new(temp_file.path().to_str().unwrap().to_string());
+        let bindgen_result = provider.get_signatures_from_bindgen().unwrap();
 
-        assert_eq!(signatures.len(), 2);
+        assert_eq!(bindgen_result.signatures.len(), 2);
 
-        let add_sig = signatures.get("add").unwrap();
+        let add_sig = bindgen_result.signatures.get("add").unwrap();
         assert_eq!(add_sig.name, "add");
         assert_eq!(add_sig.params, vec!["c_int", "c_int"]);
         assert_eq!(add_sig.return_type, "c_int");
 
-        let hello_sig = signatures.get("print_hello").unwrap();
+        let hello_sig = bindgen_result.signatures.get("print_hello").unwrap();
         assert_eq!(hello_sig.name, "print_hello");
         assert_eq!(hello_sig.params.len(), 0);
         assert_eq!(hello_sig.return_type, "()");
     }
 
     #[test]
-    fn test_header_provider_complex_types() {
+    fn test_bindgen_provider_complex_types() {
         let header_content = r#"
 unsigned int get_count(void);
 float calculate(double value, char* name);
@@ -216,34 +181,34 @@ const char* get_name(void);
         let temp_file = NamedTempFile::new().unwrap();
         fs::write(&temp_file, header_content).unwrap();
 
-        let provider = HeaderProvider::new(temp_file.path().to_str().unwrap().to_string());
-        let signatures = provider.get_signatures_from_header_only().unwrap();
+        let provider = BindgenProvider::new(temp_file.path().to_str().unwrap().to_string());
+        let bindgen_result = provider.get_signatures_from_bindgen().unwrap();
 
-        assert_eq!(signatures.len(), 5);
+        assert_eq!(bindgen_result.signatures.len(), 5);
 
-        let get_count_sig = signatures.get("get_count").unwrap();
+        let get_count_sig = bindgen_result.signatures.get("get_count").unwrap();
         assert_eq!(get_count_sig.return_type, "c_uint");
         assert_eq!(get_count_sig.params.len(), 0);
 
-        let calc_sig = signatures.get("calculate").unwrap();
-        assert_eq!(calc_sig.return_type, "c_float");
-        assert_eq!(calc_sig.params, vec!["c_double", "*mut c_char"]);
+        let calc_sig = bindgen_result.signatures.get("calculate").unwrap();
+        assert_eq!(calc_sig.return_type, "f32");
+        assert_eq!(calc_sig.params, vec!["f64", "*mut c_char"]);
 
-        let process_sig = signatures.get("process_data").unwrap();
+        let process_sig = bindgen_result.signatures.get("process_data").unwrap();
         assert_eq!(process_sig.return_type, "c_long");
         assert_eq!(process_sig.params, vec!["c_short", "c_ulong"]);
 
-        let get_version_sig = signatures.get("get_version").unwrap();
+        let get_version_sig = bindgen_result.signatures.get("get_version").unwrap();
         assert_eq!(get_version_sig.return_type, "c_int");
         assert_eq!(get_version_sig.params, vec!["*mut c_int"]);
 
-        let get_name_sig = signatures.get("get_name").unwrap();
-        assert_eq!(get_name_sig.return_type, "*mut c_char");
+        let get_name_sig = bindgen_result.signatures.get("get_name").unwrap();
+        assert_eq!(get_name_sig.return_type, "*const c_char");
         assert_eq!(get_name_sig.params.len(), 0);
     }
 
     #[test]
-    fn test_header_provider_with_macros() {
+    fn test_bindgen_provider_with_enums() {
         let header_content = r#"
 // Enum definition
 typedef enum nvmlReturn_enum {
@@ -251,45 +216,33 @@ typedef enum nvmlReturn_enum {
     NVML_ERROR_UNKNOWN = 999
 } nvmlReturn_t;
 
-#define DECLDIR __attribute__((visibility("default")))
-
-nvmlReturn_t DECLDIR nvmlInit_v2(void);
-nvmlReturn_t DECLDIR nvmlShutdown(void);
+nvmlReturn_t nvmlInit_v2(void);
+nvmlReturn_t nvmlShutdown(void);
 "#;
 
         let temp_file = NamedTempFile::new().unwrap();
         fs::write(&temp_file, header_content).unwrap();
 
-        let provider = HeaderProvider::new(temp_file.path().to_str().unwrap().to_string());
-        let signatures = provider.get_signatures_from_header_only().unwrap();
+        let provider = BindgenProvider::new(temp_file.path().to_str().unwrap().to_string());
+        let bindgen_result = provider.get_signatures_from_bindgen().unwrap();
 
-        assert_eq!(signatures.len(), 2);
+        assert_eq!(bindgen_result.signatures.len(), 2);
 
-        let init_sig = signatures.get("nvmlInit_v2").unwrap();
+        let init_sig = bindgen_result.signatures.get("nvmlInit_v2").unwrap();
         assert_eq!(init_sig.name, "nvmlInit_v2");
         assert_eq!(init_sig.params.len(), 0);
-        assert_eq!(init_sig.return_type, "c_int"); // nvmlReturn_t recognized as enum -> c_int
+        // Bindgen generates the enum type name
+        assert!(
+            init_sig.return_type.contains("nvmlReturn_enum")
+                || init_sig.return_type == "nvmlReturn_t"
+        );
 
-        let shutdown_sig = signatures.get("nvmlShutdown").unwrap();
+        let shutdown_sig = bindgen_result.signatures.get("nvmlShutdown").unwrap();
         assert_eq!(shutdown_sig.name, "nvmlShutdown");
         assert_eq!(shutdown_sig.params.len(), 0);
-        assert_eq!(shutdown_sig.return_type, "c_int");
-    }
-
-    #[test]
-    fn test_c_type_to_rust_mapping() {
-        assert_eq!(c_type_to_rust("int"), "c_int");
-        assert_eq!(c_type_to_rust("unsigned int"), "c_uint");
-        assert_eq!(c_type_to_rust("long"), "c_long");
-        assert_eq!(c_type_to_rust("unsigned long"), "c_ulong");
-        assert_eq!(c_type_to_rust("short"), "c_short");
-        assert_eq!(c_type_to_rust("unsigned short"), "c_ushort");
-        assert_eq!(c_type_to_rust("char"), "c_char");
-        assert_eq!(c_type_to_rust("unsigned char"), "c_uchar");
-        assert_eq!(c_type_to_rust("float"), "c_float");
-        assert_eq!(c_type_to_rust("double"), "c_double");
-        assert_eq!(c_type_to_rust("void"), "()");
-        assert_eq!(c_type_to_rust("char*"), "*mut c_void");
-        assert_eq!(c_type_to_rust("some_unknown_type"), "c_void");
+        assert!(
+            shutdown_sig.return_type.contains("nvmlReturn_enum")
+                || shutdown_sig.return_type == "nvmlReturn_t"
+        );
     }
 }

@@ -17,6 +17,7 @@ pub fn inject_generated_code(
     output_dir: &std::path::Path,
     lib_path: &std::path::Path,
     function_stubs: &str,
+    bindings: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let lib_path_str = if lib_path.is_absolute() {
         lib_path.to_str().unwrap().to_string()
@@ -34,6 +35,7 @@ pub fn inject_generated_code(
     let mut content = fs::read_to_string(&lib_rs_path)?;
     content = content.replace("{{FUNCTION_STUBS}}", function_stubs);
     content = content.replace("{{LIB_INCLUDE}}", &lib_include);
+    content = content.replace("{{BINDGEN_BINDINGS}}", bindings);
     fs::write(&lib_rs_path, content)?;
 
     Ok(())

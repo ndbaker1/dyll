@@ -1,15 +1,17 @@
 use std::sync::Once;
 
 #[allow(unused_imports)]
-use std::os::raw::{
-    c_char, c_double, c_float, c_int, c_long, c_short, c_uchar, c_uint, c_ulong, c_ushort, c_void,
-};
+#[allow(non_snake_case)]
+use libc::*;
 
-static mut LIB_HANDLE: Option<*mut c_void> = None;
-static INIT: Once = Once::new();
+// Bindgen-generated bindings
+{{BINDGEN_BINDINGS}}
 
 // Embed original library
 {{LIB_INCLUDE}}
+
+static mut LIB_HANDLE: Option<*mut c_void> = None;
+static INIT: Once = Once::new();
 
 /// Loads the embedded shared library using memfd_create instead of a tempfile.
 /// 
@@ -23,9 +25,8 @@ static INIT: Once = Once::new();
 /// 
 /// The memfd is created with a name for debugging purposes, then written with the
 /// embedded library bytes. A path like /proc/self/fd/<fd> is constructed for dlopen.
-#[cfg(target_os = "linux")]
 fn load_embedded_lib() -> *mut c_void {
-    unsafe {
+    INIT.call_once(|| unsafe {
         // Create anonymous file in memory
         let fd = libc::syscall(libc::SYS_memfd_create, c"embedded_lib".as_ptr(), 0);
         if fd < 0 {
@@ -47,17 +48,13 @@ fn load_embedded_lib() -> *mut c_void {
             panic!("Failed to dlopen embedded library");
         }
 
-        handle
-    }
-}
-
-fn get_lib() -> *mut c_void {
-    INIT.call_once(|| unsafe { LIB_HANDLE = Some(load_embedded_lib()); });
+        LIB_HANDLE = Some(handle)
+    });
     unsafe { LIB_HANDLE.unwrap() }
 }
 
 fn get_symbol(name: &[u8]) -> *const c_void {
-    let handle = get_lib();
+    let handle = load_embedded_lib();
     let sym =  unsafe { libc::dlsym(handle, name.as_ptr() as *const c_char) };
     if sym.is_null() {
         panic!("Symbol not found: {}", std::str::from_utf8(name).unwrap());

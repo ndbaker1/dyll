@@ -1,13 +1,10 @@
 pub mod header;
 
-pub use header::HeaderProvider;
+pub use header::BindgenProvider;
 
 pub trait SignatureProvider {
     fn get_signatures(
         &self,
         so_path: &str,
-    ) -> Result<
-        std::collections::HashMap<String, crate::FunctionSignature>,
-        Box<dyn std::error::Error>,
-    >;
+    ) -> Result<crate::BindgenResult, Box<dyn std::error::Error>>;
 }
