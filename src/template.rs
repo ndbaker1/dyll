@@ -39,7 +39,8 @@ pub fn copy_templates_to_output(
 pub fn generate_project(
     output_dir: &Path,
     lib_path: &Path,
-    function_stubs: &str,
+    known_stubs: &str,
+    unknown_stubs: &str,
     bindings: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let lib_path_str = if lib_path.is_absolute() {
@@ -50,7 +51,11 @@ pub fn generate_project(
     };
 
     let mut replacements = HashMap::new();
-    replacements.insert("FUNCTION_STUBS".to_string(), function_stubs.to_string());
+    replacements.insert("FUNCTION_STUBS".to_string(), known_stubs.to_string());
+    replacements.insert(
+        "UNKNOWN_FUNCTION_STUBS".to_string(),
+        unknown_stubs.to_string(),
+    );
     replacements.insert("SHARED_LIBRARY_PATH".to_string(), lib_path_str.to_string());
     replacements.insert("BINDGEN_BINDINGS".to_string(), bindings.to_string());
 

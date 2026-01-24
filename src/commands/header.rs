@@ -23,13 +23,14 @@ pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error
         bindgen_result.signatures.len()
     );
 
-    let function_stubs =
+    let (known_stubs, unknown_stubs) =
         generator::generate_function_stubs(&functions, &bindgen_result.signatures)?;
 
     template::generate_project(
         &cli.output_dir,
         &cli.lib_path,
-        &function_stubs,
+        &known_stubs,
+        &unknown_stubs,
         &bindgen_result.bindings,
     )?;
 

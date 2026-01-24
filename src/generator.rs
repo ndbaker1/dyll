@@ -4,8 +4,9 @@ use std::collections::HashMap;
 pub fn generate_function_stubs(
     functions: &[String],
     signatures: &HashMap<String, FunctionSignature>,
-) -> Result<String, Box<dyn std::error::Error>> {
-    let mut code = String::new();
+) -> Result<(String, String), Box<dyn std::error::Error>> {
+    let mut known_stubs = String::new();
+    let mut unknown_stubs = String::new();
 
     for func in functions {
         let stub_code = if let Some(sig) = signatures.get(func) {
@@ -66,8 +67,13 @@ pub unsafe extern "C" fn {func}() {{
                 func = func
             )
         };
-        code.push_str(&stub_code);
+
+        if signatures.contains_key(func) {
+            known_stubs.push_str(&stub_code);
+        } else {
+            unknown_stubs.push_str(&stub_code);
+        }
     }
 
-    Ok(code)
+    Ok((known_stubs, unknown_stubs))
 }

@@ -1,7 +1,5 @@
-#[allow(unused_imports)]
-#[allow(non_snake_case)]
-#[allow(non_camel_case_types)]
-#[allow(nonstandard_style)]
+#![allow(unused_imports)]
+#![allow(nonstandard_style)]
 use libc::*;
 
 pub mod types;
@@ -12,3 +10,6 @@ pub use dl::*;
 
 // Generated function stubs
 {{FUNCTION_STUBS}}
+
+// Unknown function stubs (functions not found in header)
+{{UNKNOWN_FUNCTION_STUBS}}
