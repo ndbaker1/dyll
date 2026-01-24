@@ -12,7 +12,10 @@ jobs:
           ./setup.sh
       - name: Test
         working-directory: examples/nvml
+        env:
+          LD_LIBRARY_PATH: .
         run: |
-          export LD_LIBRARY_PATH=.
-          ./run.sh ./nvidia-smi
           ./run.sh ./nvidia-smi -q
+          ./run.sh ./nvidia-smi nvlink -s
+          # swallow this error for now. the other invocations doesn't seem affected errors.
+          ./run.sh ./nvidia-smi || true

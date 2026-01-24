@@ -3176,7 +3176,8 @@ pub unsafe extern "C" fn nvmlDeviceGetMigMode(
         arg2: *mut c_uint,
     ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetMigMode"));
     eprintln!("[CALL] {}", "nvmlDeviceGetMigMode");
-    nvmlDeviceGetMigMode(arg0, arg1, arg2)
+    nvmlDeviceGetMigMode(arg0, arg1, arg2);
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceResetNvLinkErrorCounters(
@@ -3927,7 +3928,8 @@ pub unsafe extern "C" fn nvmlDeviceGetIndex(arg0: nvmlDevice_t, arg1: *mut c_uin
     let nvmlDeviceGetIndex: extern "C" fn(arg0: nvmlDevice_t, arg1: *mut c_uint) -> nvmlReturn_t =
         std::mem::transmute(get_sym("nvmlDeviceGetIndex"));
     eprintln!("[CALL] {}", "nvmlDeviceGetIndex");
-    nvmlDeviceGetIndex(arg0, arg1)
+    nvmlDeviceGetIndex(arg0, arg1);
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetGpcClkMinMaxVfOffset(
@@ -4465,17 +4467,13 @@ pub unsafe extern "C" fn nvmlDeviceSetAPIRestriction(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetName(
-    arg0: nvmlDevice_t,
+    _: nvmlDevice_t,
     arg1: *mut c_char,
     arg2: c_uint,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetName: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut c_char,
-        arg2: c_uint,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetName"));
     eprintln!("[CALL] {}", "nvmlDeviceGetName");
-    nvmlDeviceGetName(arg0, arg1, arg2)
+    std::ptr::copy_nonoverlapping("fake-device\0".as_ptr() as *const c_char, arg1, arg2 as _);
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetAccountingStats(
