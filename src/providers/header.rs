@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use syn::{parse_str, FnArg, ForeignItem, Item, PatType, Type};
+use syn::{parse_str, FnArg::Typed, ForeignItem, Item, PatType, Type};
 
 use super::SignatureProvider;
 use crate::{providers::BindgenResult, FunctionSignature};
@@ -79,10 +79,10 @@ impl BindgenProvider {
         let syntax_tree = parse_str::<syn::File>(&generated_code)?;
 
         let mut bindings_parts = Vec::new();
-        let mut extern_c_blocks = Vec::new();
 
         for item in syntax_tree.items {
             match item {
+                // TODO: i dont really love how this is done.
                 Item::ForeignMod(ref foreign_mod) => {
                     // Check if it's extern "C"
                     let is_extern_c = foreign_mod
@@ -95,31 +95,31 @@ impl BindgenProvider {
                         // Extract function signatures from extern "C" blocks
                         for foreign_item in &foreign_mod.items {
                             if let ForeignItem::Fn(func) = foreign_item {
-                                let func_name = func.sig.ident.to_string();
+                                let name = func.sig.ident.to_string();
                                 let return_type = match &func.sig.output {
                                     syn::ReturnType::Default => "()".to_string(),
                                     syn::ReturnType::Type(_, ty) => syn_type_to_rust(ty),
                                 };
-                                let mut params = Vec::new();
-
-                                for arg in &func.sig.inputs {
-                                    if let FnArg::Typed(PatType { ty, .. }) = arg {
-                                        params.push(syn_type_to_rust(ty));
-                                    }
-                                }
+                                let params = func
+                                    .sig
+                                    .inputs
+                                    .iter()
+                                    .filter_map(|arg| match arg {
+                                        Typed(PatType { ty, .. }) => Some(syn_type_to_rust(ty)),
+                                        _ => None,
+                                    })
+                                    .collect();
 
                                 signatures.insert(
-                                    func_name.clone(),
+                                    name.clone(),
                                     FunctionSignature {
-                                        name: func_name,
+                                        name,
                                         params,
                                         return_type,
                                     },
                                 );
                             }
                         }
-                        // Store extern "C" blocks to filter them out later
-                        extern_c_blocks.push(format!("{}", quote::quote!(#item)));
                     } else {
                         // Non-C extern blocks go into bindings
                         bindings_parts.push(format!("{}", quote::quote!(#item)));
@@ -132,18 +132,9 @@ impl BindgenProvider {
             }
         }
 
-        // Create bindings code by filtering out extern "C" blocks from original generated code
-        let mut bindings_code = generated_code.clone();
-        for extern_block in &extern_c_blocks {
-            bindings_code = bindings_code.replace(extern_block, "");
-        }
-
-        // Clean up any extra whitespace
-        bindings_code = bindings_code.trim().to_string();
-
         Ok(BindgenResult {
             signatures,
-            bindings: bindings_code,
+            bindings: bindings_parts.join("\n"),
         })
     }
 }
