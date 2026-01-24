@@ -2,12 +2,17 @@ name: CI Pipeline
 on: [push, pull_request]
 
 jobs:
-  test:
+  nvml-example:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Build NVML Example
+      - name: Setup
+        working-directory: examples/nvml
         run: |
-          cd examples/nvml
           ./setup.sh
-          ./test.sh
+      - name: Test
+        working-directory: examples/nvml
+        run: |
+          export LD_LIBRARY_PATH=.
+          ./run.sh ./nvidia-smi
+          ./run.sh ./nvidia-smi -q
