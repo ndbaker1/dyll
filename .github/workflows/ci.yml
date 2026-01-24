@@ -15,7 +15,17 @@ jobs:
         env:
           LD_LIBRARY_PATH: .
         run: |
-          ./run.sh ./nvidia-smi -q
-          ./run.sh ./nvidia-smi nvlink -s
-          # swallow this error for now. the other invocations doesn't seem affected errors.
-          ./run.sh ./nvidia-smi || true
+          echo "================" >> run.log
+          echo "> nvidia-smi" >> run.log
+          # swallow this run for now. the other invocations doesn't seem affected errors.
+          ./run.sh ./nvidia-smi 2>> run.log || true
+
+          echo "================" >> run.log
+          echo "> ./nvidia-smi -q" >> run.log
+          ./run.sh ./nvidia-smi -q 2>> run.log
+
+          echo "================" >> run.log
+          echo "> ./nvidia-smi nvlink -s" >> run.log
+          ./run.sh ./nvidia-smi nvlink -s 2>> run.log
+
+          cat run.log
