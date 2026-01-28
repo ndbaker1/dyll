@@ -246,15 +246,13 @@ pub unsafe extern "C" fn nvmlDeviceGetGspFirmwareMode(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceIsMigDeviceHandle(
-    arg0: nvmlDevice_t,
-    arg1: *mut c_uint,
+    _: nvmlDevice_t,
+    is_mig: *mut c_uint,
 ) -> nvmlReturn_t {
-    let nvmlDeviceIsMigDeviceHandle: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut c_uint,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceIsMigDeviceHandle"));
     eprintln!("[CALL] {}", "nvmlDeviceIsMigDeviceHandle");
-    nvmlDeviceIsMigDeviceHandle(arg0, arg1)
+    // we aren't going to support mig devices.
+    *is_mig = NVML_DEVICE_MIG_DISABLE;
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceSetNvlinkBwMode(
@@ -864,7 +862,7 @@ pub unsafe extern "C" fn nvmlDeviceGetUUID(
     let uuid = uuid::Uuid::from_u128(dev.addr() as _).to_string();
     eprintln!("[CALL] {}", "nvmlDeviceGetUUID");
     std::ptr::copy_nonoverlapping(
-        format!("{}\0", uuid).as_ptr() as *const c_char,
+        format!("GPU-{}\0", uuid).as_ptr() as *const c_char,
         arg1,
         arg2 as _,
     );
@@ -2770,15 +2768,13 @@ pub unsafe extern "C" fn nvmlGpmSetStreamingEnabled(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetVirtualizationMode(
-    arg0: nvmlDevice_t,
+    _: nvmlDevice_t,
     arg1: *mut nvmlGpuVirtualizationMode_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetVirtualizationMode: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut nvmlGpuVirtualizationMode_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetVirtualizationMode"));
     eprintln!("[CALL] {}", "nvmlDeviceGetVirtualizationMode");
-    nvmlDeviceGetVirtualizationMode(arg0, arg1)
+    // not supporting this feature.
+    *arg1 = NVML_GPU_VIRTUALIZATION_MODE_NONE;
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetPowerSource(

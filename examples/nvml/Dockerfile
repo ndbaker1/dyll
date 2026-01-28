@@ -18,10 +18,14 @@ RUN tar xvf nvidia_driver-linux-sbsa-${DRIVER_VERSION}-archive.tar \
 COPY src src
 COPY Cargo.* .
 
+# make sure the SONAME is created. this is what gets used to identify identical
+# .so files during the symlink process.
+ENV RUSTFLAGS="-C link-arg=-Wl,-soname,libnvidia-ml.so.1"
+
 # run a debug build using the downloaded shared lib.
 RUN SHARED_LIBRARY_PATH=/workdir/libnvidia-ml.so.${DRIVER_VERSION} cargo build
 
 FROM alpine AS runner
 # copy built rust shared lib into default workdir under the name of the nvidia
 # management library.
-COPY --from=builder /workdir/target/debug/libmock_lib.so libnvidia-ml.so
+COPY --from=builder /workdir/target/debug/libmock_lib.so libnvidia-ml.so.1
