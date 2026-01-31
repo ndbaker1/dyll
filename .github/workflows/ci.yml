@@ -18,8 +18,7 @@ jobs:
         run: |
           echo "================" >> run.log
           echo "> nvidia-smi" >> run.log
-          # swallow this run for now. the other invocations doesn't seem affected errors.
-          ./run.sh ./nvidia-smi 2>> run.log || true
+          ./run.sh ./nvidia-smi 2>> run.log
 
           echo "================" >> run.log
           echo "> ./nvidia-smi -q" >> run.log
