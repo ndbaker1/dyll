@@ -1399,7 +1399,9 @@ pub unsafe extern "C" fn nvmlDeviceGetHandleByIndex_v2(
 ) -> nvmlReturn_t {
     eprintln!("[CALL] {}", "nvmlDeviceGetHandleByIndex_v2");
     // we give each device a handle based on the index that is comes in as.
-    let ptr = index as *mut u32;
+    //
+    // WARNING: add 1 because if we end up using 0 that means a null pointer!
+    let ptr = (index as *mut u32).wrapping_add(1);
     *dev = ptr.addr() as _;
     eprintln!(
         "[CALL] {}: gpu index {} given id {:?}",

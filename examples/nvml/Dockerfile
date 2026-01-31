@@ -4,8 +4,6 @@ WORKDIR /workdir
 
 ARG DRIVER_VERSION=580.126.09
 
-# TODO: you'll need to adjust these on the builder to target the host.
-# 
 # downloads the nvidia management library .so file and uses it to build the nvml
 # interception library. needs to be cache in a low layer to prevent long rebuilds.
 COPY download-* .
