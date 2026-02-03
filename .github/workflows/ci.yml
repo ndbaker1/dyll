@@ -16,6 +16,11 @@ jobs:
         env:
           LD_LIBRARY_PATH: .
         run: |
+          finish() {
+            cat run.log
+          }
+          trap finish EXIT ERR SIGINT SIGTERM
+
           echo "================" >> run.log
           echo "> nvidia-smi" >> run.log
           ./run.sh ./nvidia-smi 2>> run.log
@@ -27,5 +32,3 @@ jobs:
           echo "================" >> run.log
           echo "> ./nvidia-smi nvlink -s" >> run.log
           ./run.sh ./nvidia-smi nvlink -s 2>> run.log
-
-          cat run.log

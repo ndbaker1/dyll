@@ -14,7 +14,7 @@ pub extern "C" fn custom_init_function() {
     use std::str::FromStr;
 
     let level_filter = std::fs::read_to_string("/etc/dyll/options/level-filter")
-        .map(|f| log::LevelFilter::from_str(&f).unwrap())
+        .map(|f| log::LevelFilter::from_str(&f.trim()).unwrap())
         .unwrap_or(log::LevelFilter::Debug);
 
     env_logger::builder().filter_level(level_filter).init();
