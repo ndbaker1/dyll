@@ -8,6 +8,7 @@ ARG DRIVER_VERSION=580.126.09
 # interception library. needs to be cache in a low layer to prevent long rebuilds.
 COPY download-* .
 RUN DRIVER_VERSION=${DRIVER_VERSION} ./download-libnvidia-ml.sh
+RUN DRIVER_VERSION=${DRIVER_VERSION} ./download-nvidia-smi.sh
 
 # only need the source code.
 COPY src src

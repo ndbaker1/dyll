@@ -30,6 +30,7 @@ static INIT: Once = Once::new();
 ///
 /// The memfd is created with a name for debugging purposes, then written with the
 /// embedded library bytes. A path like /proc/self/fd/<fd> is constructed for dlopen.
+#[cfg(target_os = "linux")]
 fn load_embedded_lib() -> *mut c_void {
     INIT.call_once(|| unsafe {
         // Create anonymous file in memory
@@ -59,5 +60,11 @@ fn load_embedded_lib() -> *mut c_void {
 
         LIB_HANDLE = Some(handle)
     });
+    unsafe { LIB_HANDLE.unwrap() }
+}
+
+// catch-all for non-supported platforms.
+#[cfg(not(target_os = "linux"))]
+fn load_embedded_lib() -> *mut c_void {
     unsafe { LIB_HANDLE.unwrap() }
 }

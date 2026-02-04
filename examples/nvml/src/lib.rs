@@ -741,7 +741,7 @@ pub unsafe extern "C" fn nvmlVgpuTypeGetMaxInstancesPerGpuInstance(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetCudaComputeCapability(
-    arg0: nvmlDevice_t,
+    _: nvmlDevice_t,
     arg1: *mut c_int,
     arg2: *mut c_int,
 ) -> nvmlReturn_t {
@@ -1474,8 +1474,8 @@ pub unsafe extern "C" fn nvmlGpuInstanceGetComputeInstanceById(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetMemoryInfo(
-    arg0: nvmlDevice_t,
-    arg1: *mut nvmlMemory_t,
+    _: nvmlDevice_t,
+    _: *mut nvmlMemory_t,
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlDeviceGetMemoryInfo");
     NVML_SUCCESS
