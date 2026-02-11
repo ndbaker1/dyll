@@ -2350,20 +2350,25 @@ pub unsafe extern "C" fn nvmlDeviceGetEnforcedPowerLimit(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetPciInfo_v3(
-    _arg0: nvmlDevice_t,
-    _arg1: *mut nvmlPciInfo_t,
+    _: nvmlDevice_t,
+    pciInfo: *mut nvmlPciInfo_t,
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlDeviceGetPciInfo_v3");
-    *_arg1 = nvmlPciInfo_st {
-        bus: 1,
-        busId: [1; 32],
-        busIdLegacy: [0; 16],
-        domain: 4242,
-        device: 4242,
-        // These are Mellanox Technologies CX8 Family values.
-        pciDeviceId: 0x15b3,
-        pciSubSystemId: 0x0008,
+    *pciInfo = nvmlPciInfo_st {
+        bus: 0x65,
+        domain: 0x00000000,
+        device: 0x00,
+        pciDeviceId: 0x2941,
+        pciSubSystemId: 0x2046,
+        // these are populated afterwards based on the bus, domain, and device set above.
+        busId: std::default::Default::default(),
+        busIdLegacy: std::default::Default::default(),
     };
+
+    for (i, c) in b"00000000:65:00.0".iter().enumerate() {
+        (*pciInfo).busId[i] = *c as c_char
+    }
+
     NVML_SUCCESS
 }
 #[no_mangle]
