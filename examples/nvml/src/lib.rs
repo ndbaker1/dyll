@@ -765,15 +765,38 @@ pub unsafe extern "C" fn nvmlGpuInstanceGetInfo(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetPciInfoExt(
-    arg0: nvmlDevice_t,
-    arg1: *mut nvmlPciInfoExt_t,
+    dev: nvmlDevice_t,
+    pciInfoExt: *mut nvmlPciInfoExt_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetPciInfoExt: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut nvmlPciInfoExt_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetPciInfoExt"));
     log::debug!("[CALL] {}", "nvmlDeviceGetPciInfoExt");
-    nvmlDeviceGetPciInfoExt(arg0, arg1)
+    *pciInfoExt = nvmlPciInfoExt_t {
+        // TODO: we should ensure this is always within u32 range.
+        bus: dev.addr() as u32,
+        domain: 0x00000000,
+        device: 0x00,
+        pciDeviceId: 0x2941,
+        pciSubSystemId: 0x2046,
+        version: 3,
+        baseClass: 0,
+        subClass: 0,
+        // these are populated afterwards based on the bus, domain, and device set above.
+        busId: std::default::Default::default(),
+    };
+
+    for (i, c) in format!(
+        "{:08x}:{:02x}:{:02x}.0",
+        (*pciInfoExt).domain,
+        (*pciInfoExt).bus,
+        (*pciInfoExt).device
+    )
+    .as_bytes()
+    .iter()
+    .enumerate()
+    {
+        (*pciInfoExt).busId[i] = *c as c_char
+    }
+
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceSetDefaultAutoBoostedClocksEnabled(
@@ -1404,7 +1427,7 @@ pub unsafe extern "C" fn nvmlDeviceGetHandleByIndex_v2(
     // we give each device a handle based on the index that is comes in as.
     //
     // WARNING: add 1 because if we end up using 0 that means a null pointer!
-    let ptr = (index as *mut u32).wrapping_add(1);
+    let ptr = (index as *mut u8).wrapping_add(1);
     *dev = ptr.addr() as _;
     log::debug!(
         "[CALL] {}: gpu index {} given id {:?}",
@@ -2350,24 +2373,29 @@ pub unsafe extern "C" fn nvmlDeviceGetEnforcedPowerLimit(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetPciInfo_v3(
-    _: nvmlDevice_t,
+    device: nvmlDevice_t,
     pciInfo: *mut nvmlPciInfo_t,
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlDeviceGetPciInfo_v3");
+
+    // call into PciInfoExt to get the same information without duplicating code.
+    let layout = std::alloc::Layout::new::<nvmlPciInfoExt_t>();
+    let ptr = std::alloc::alloc(layout) as *mut nvmlPciInfoExt_t;
+    let ret = nvmlDeviceGetPciInfoExt(device, ptr);
+    if ret != NVML_SUCCESS {
+        return ret;
+    }
+
     *pciInfo = nvmlPciInfo_st {
-        bus: 0x65,
-        domain: 0x00000000,
-        device: 0x00,
-        pciDeviceId: 0x2941,
-        pciSubSystemId: 0x2046,
-        // these are populated afterwards based on the bus, domain, and device set above.
-        busId: std::default::Default::default(),
+        bus: (*ptr).bus,
+        domain: (*ptr).domain,
+        device: (*ptr).device,
+        pciDeviceId: (*ptr).pciDeviceId,
+        pciSubSystemId: (*ptr).pciSubSystemId,
+        busId: (*ptr).busId,
+        // TODO: shouldn't be used, but we can set it from the busId
         busIdLegacy: std::default::Default::default(),
     };
-
-    for (i, c) in b"00000000:65:00.0".iter().enumerate() {
-        (*pciInfo).busId[i] = *c as c_char
-    }
 
     NVML_SUCCESS
 }
@@ -3993,11 +4021,11 @@ pub unsafe extern "C" fn nvmlVgpuInstanceGetMetadata(
     nvmlVgpuInstanceGetMetadata(arg0, arg1, arg2)
 }
 #[no_mangle]
-pub unsafe extern "C" fn nvmlDeviceGetIndex(arg0: nvmlDevice_t, arg1: *mut c_uint) -> nvmlReturn_t {
-    let nvmlDeviceGetIndex: extern "C" fn(arg0: nvmlDevice_t, arg1: *mut c_uint) -> nvmlReturn_t =
-        std::mem::transmute(get_sym("nvmlDeviceGetIndex"));
-    log::debug!("[CALL] {}", "nvmlDeviceGetIndex");
-    nvmlDeviceGetIndex(arg0, arg1);
+pub unsafe extern "C" fn nvmlDeviceGetIndex(
+    device: nvmlDevice_t,
+    index: *mut c_uint,
+) -> nvmlReturn_t {
+    *index = device.addr() as c_uint;
     NVML_SUCCESS
 }
 #[no_mangle]
