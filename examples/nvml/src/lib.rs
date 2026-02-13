@@ -2441,7 +2441,7 @@ pub unsafe extern "C" fn nvmlDeviceGetGpuFabricInfo(
     *arg1 = nvmlGpuFabricInfo_t {
         clusterUuid: [42; 16],
         status: NVML_SUCCESS,
-        cliqueId: 4242,
+        cliqueId: option_env!("CLIQUE_ID").map_or(0, |i| i.parse().unwrap_or_default()),
         state: NVML_GPU_FABRIC_STATE_COMPLETED as _,
     };
     NVML_SUCCESS

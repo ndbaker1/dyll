@@ -20,3 +20,6 @@ COPY Cargo.* .
 # .so files during the symlink process.
 RUN SHARED_LIBRARY_PATH=/workdir/libnvidia-ml.so.${DRIVER_VERSION} RUSTFLAGS="-C link-arg=-Wl,-soname,libnvidia-ml.so.1" cargo build
 RUN cp -v /workdir/target/debug/libmock_lib.so libnvidia-ml.so.1
+
+RUN mkdir -p        /etc/dyll/options/
+RUN echo 'WARN' >   /etc/dyll/options/level-filter
