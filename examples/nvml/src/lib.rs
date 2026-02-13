@@ -2434,16 +2434,25 @@ pub unsafe extern "C" fn nvmlGpuInstanceGetComputeInstanceRemainingCapacity(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetGpuFabricInfo(
-    _: nvmlDevice_t,
+    device: nvmlDevice_t,
     arg1: *mut nvmlGpuFabricInfo_t,
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlDeviceGetGpuFabricInfo");
+
+    let layout = std::alloc::Layout::new::<nvmlGpuFabricInfoV_t>();
+    let ptr = std::alloc::alloc(layout) as *mut nvmlGpuFabricInfoV_t;
+    let ret = nvmlDeviceGetGpuFabricInfoV(device, ptr);
+    if ret != NVML_SUCCESS {
+        return ret;
+    }
+
     *arg1 = nvmlGpuFabricInfo_t {
-        clusterUuid: [42; 16],
-        status: NVML_SUCCESS,
-        cliqueId: option_env!("CLIQUE_ID").map_or(0, |i| i.parse().unwrap_or_default()),
-        state: NVML_GPU_FABRIC_STATE_COMPLETED as _,
+        clusterUuid: (*ptr).clusterUuid,
+        status: (*ptr).status,
+        cliqueId: (*ptr).cliqueId,
+        state: (*ptr).state,
     };
+
     NVML_SUCCESS
 }
 #[no_mangle]
@@ -3190,7 +3199,7 @@ pub unsafe extern "C" fn nvmlDeviceGetGpuFabricInfoV(
         version: 0,
         clusterUuid: [42; 16],
         status: NVML_SUCCESS,
-        cliqueId: 4242,
+        cliqueId: option_env!("CLIQUE_ID").map_or(0, |i| i.parse().unwrap_or_default()),
         state: NVML_GPU_FABRIC_STATE_COMPLETED as _,
         healthMask: 0,
         healthSummary: NVML_GPU_FABRIC_HEALTH_SUMMARY_HEALTHY as _,
