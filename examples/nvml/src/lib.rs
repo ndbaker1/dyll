@@ -285,11 +285,19 @@ pub unsafe extern "C" fn nvmlVgpuInstanceGetVmDriverVersion(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlSystemGetDriverVersion(
-    arg0: *mut c_char,
-    arg1: c_uint,
+    version: *mut c_char,
+    n: c_uint,
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlSystemGetDriverVersion");
-    std::ptr::copy_nonoverlapping("580.126.09\0".as_ptr() as *const c_char, arg0, arg1 as _);
+
+    std::ptr::copy_nonoverlapping(
+        std::ffi::CString::new(option_env!("DRIVER_VERSION").unwrap_or("580.126.09"))
+            .unwrap()
+            .as_ptr() as *const c_char,
+        version,
+        n as _,
+    );
+
     NVML_SUCCESS
 }
 #[no_mangle]
