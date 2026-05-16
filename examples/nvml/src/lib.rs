@@ -2473,7 +2473,8 @@ pub unsafe extern "C" fn nvmlDeviceGetBrand(
         arg1: *mut nvmlBrandType_t,
     ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetBrand"));
     log::debug!("[CALL] {}", "nvmlDeviceGetBrand");
-    nvmlDeviceGetBrand(arg0, arg1)
+    nvmlDeviceGetBrand(arg0, arg1);
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetPlatformInfo(
@@ -5088,9 +5089,10 @@ pub unsafe extern "C" fn nvmlComputeInstanceGetInfo() {
     nvmlComputeInstanceGetInfo()
 }
 #[no_mangle]
-pub unsafe extern "C" fn nvmlDeviceGetPciInfo() {
+pub unsafe extern "C" fn nvmlDeviceGetPciInfo() -> nvmlReturn_t {
     let nvmlDeviceGetPciInfo: extern "C" fn() =
         std::mem::transmute(get_sym("nvmlDeviceGetPciInfo"));
     log::debug!("[CALL] {}", "nvmlDeviceGetPciInfo");
-    nvmlDeviceGetPciInfo()
+    nvmlDeviceGetPciInfo();
+    NVML_SUCCESS
 }
