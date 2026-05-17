@@ -4855,11 +4855,13 @@ pub unsafe extern "C" fn nvmlEventSetWait() {
     nvmlEventSetWait()
 }
 #[no_mangle]
-pub unsafe extern "C" fn nvmlDeviceGetPciInfo_v2() {
-    let nvmlDeviceGetPciInfo_v2: extern "C" fn() =
-        std::mem::transmute(get_sym("nvmlDeviceGetPciInfo_v2"));
-    log::debug!("[CALL] {}", "nvmlDeviceGetPciInfo_v2");
-    nvmlDeviceGetPciInfo_v2()
+pub unsafe extern "C" fn nvmlDeviceGetPciInfo_v2(
+    device: nvmlDevice_t,
+    pciInfo: *mut nvmlPciInfo_t,
+) -> nvmlReturn_t {
+    // Delegate to the v3 implementation.
+    log::debug!("[CALL] nvmlDeviceGetPciInfo_v2");
+    nvmlDeviceGetPciInfo_v3(device, pciInfo)
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetDriverModel() {
@@ -5089,10 +5091,11 @@ pub unsafe extern "C" fn nvmlComputeInstanceGetInfo() {
     nvmlComputeInstanceGetInfo()
 }
 #[no_mangle]
-pub unsafe extern "C" fn nvmlDeviceGetPciInfo() -> nvmlReturn_t {
-    let nvmlDeviceGetPciInfo: extern "C" fn() =
-        std::mem::transmute(get_sym("nvmlDeviceGetPciInfo"));
-    log::debug!("[CALL] {}", "nvmlDeviceGetPciInfo");
-    nvmlDeviceGetPciInfo();
-    NVML_SUCCESS
+pub unsafe extern "C" fn nvmlDeviceGetPciInfo(
+    device: nvmlDevice_t,
+    pciInfo: *mut nvmlPciInfo_t,
+) -> nvmlReturn_t {
+    // Delegate to the v3 implementation.
+    log::debug!("[CALL] nvmlDeviceGetPciInfo");
+    nvmlDeviceGetPciInfo_v3(device, pciInfo)
 }
