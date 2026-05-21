@@ -8,6 +8,9 @@ pub use types::*;
 pub mod dl;
 pub use dl::*;
 
+pub mod config;
+pub use config::*;
+
 // A function we want to run at load time of the library.
 #[no_mangle]
 pub extern "C" fn custom_init_function() {

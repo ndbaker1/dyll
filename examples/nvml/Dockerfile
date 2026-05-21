@@ -17,9 +17,13 @@ COPY Cargo.* .
 # run a debug build using the downloaded shared lib.
 #
 # make sure the SONAME is created. this is what gets used to identify identical
-# .so files during the symlink process.
+# .so files during the symlink process. SHARED_LIBRARY_PATH stays build-time
+# because the .so is embedded into the library via include_bytes!.
 RUN SHARED_LIBRARY_PATH=/workdir/libnvidia-ml.so.${DRIVER_VERSION} RUSTFLAGS="-C link-arg=-Wl,-soname,libnvidia-ml.so.1" cargo build
 RUN cp -v /workdir/target/debug/libmock_lib.so libnvidia-ml.so.1
 
-RUN mkdir -p        /etc/dyll/options/
-RUN echo 'WARN' >   /etc/dyll/options/level-filter
+# runtime options: read via discover_config_path() at call time so the same
+# .so binary can be redeployed with different values without a rebuild.
+RUN mkdir -p              /etc/dyll/options/
+RUN echo 'WARN'         > /etc/dyll/options/level-filter
+RUN echo "${DRIVER_VERSION}" > /etc/dyll/options/driver-version

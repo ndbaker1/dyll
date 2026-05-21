@@ -8,13 +8,22 @@ pub use types::*;
 pub mod dl;
 pub use dl::*;
 
+pub mod config;
+pub use config::*;
+
+// Runtime options resolved via discover_config_path() / read_option().
+const OPT_LEVEL_FILTER: &str = "level-filter";
+const OPT_DRIVER_VERSION: &str = "driver-version";
+const OPT_CLIQUE_ID: &str = "clique-id";
+const OPT_CLUSTER_UUID: &str = "cluster-uuid";
+
 // The function we want to run at load time.
 #[no_mangle]
 pub extern "C" fn custom_init_function() {
     use std::str::FromStr;
 
-    let level_filter = std::fs::read_to_string("/etc/dyll/options/level-filter")
-        .map(|f| log::LevelFilter::from_str(&f.trim()).unwrap())
+    let level_filter = read_option(OPT_LEVEL_FILTER)
+        .and_then(|f| log::LevelFilter::from_str(&f).ok())
         .unwrap_or(log::LevelFilter::Debug);
 
     env_logger::builder().filter_level(level_filter).init();
@@ -290,13 +299,9 @@ pub unsafe extern "C" fn nvmlSystemGetDriverVersion(
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlSystemGetDriverVersion");
 
-    std::ptr::copy_nonoverlapping(
-        std::ffi::CString::new(option_env!("DRIVER_VERSION").unwrap_or("580.126.09"))
-            .unwrap()
-            .as_ptr() as *const c_char,
-        version,
-        n as _,
-    );
+    let v = read_option(OPT_DRIVER_VERSION).unwrap_or_else(|| "580.126.09".to_string());
+    let cs = std::ffi::CString::new(v).unwrap();
+    std::ptr::copy_nonoverlapping(cs.as_ptr() as *const c_char, version, n as _);
 
     NVML_SUCCESS
 }
@@ -3206,9 +3211,14 @@ pub unsafe extern "C" fn nvmlDeviceGetGpuFabricInfoV(
     log::debug!("[CALL] {}", "nvmlDeviceGetGpuFabricInfoV");
     *arg1 = nvmlGpuFabricInfo_v3_t {
         version: 0,
-        clusterUuid: [42; 16],
+        clusterUuid: read_option(OPT_CLUSTER_UUID)
+            .and_then(|s| uuid::Uuid::parse_str(&s).ok())
+            .map(|u| *u.as_bytes())
+            .unwrap_or([42; 16]),
         status: NVML_SUCCESS,
-        cliqueId: option_env!("CLIQUE_ID").map_or(0, |i| i.parse().unwrap_or_default()),
+        cliqueId: read_option(OPT_CLIQUE_ID)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0),
         state: NVML_GPU_FABRIC_STATE_COMPLETED as _,
         healthMask: 0,
         healthSummary: NVML_GPU_FABRIC_HEALTH_SUMMARY_HEALTHY as _,

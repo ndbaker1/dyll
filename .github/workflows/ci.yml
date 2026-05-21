@@ -32,3 +32,7 @@ jobs:
           echo "================" >> run.log
           echo "> ./nvidia-smi nvlink -s" >> run.log
           ./run.sh ./nvidia-smi nvlink -s 2>> run.log
+
+          echo "================" >> run.log
+          echo "> tests/discover-config.sh" >> run.log
+          docker run --rm -v "$PWD/tests:/tests" libnvidia-ml-so:latest /tests/discover-config.sh 2>&1 | tee -a run.log
