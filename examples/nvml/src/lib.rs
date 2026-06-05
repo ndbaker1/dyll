@@ -1070,12 +1070,13 @@ pub unsafe extern "C" fn nvmlDeviceGetVgpuSchedulerLog(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetMinorNumber(
-    _: nvmlDevice_t,
+    dev: nvmlDevice_t,
     arg1: *mut c_uint,
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlDeviceGetMinorNumber");
-    // TODO: this should should really be sequential per GPU
-    *arg1 = 0;
+    // minor number maps to /dev/nvidia{minor}.
+    // the device address we get is actually the index encoded as index + 1.
+    *arg1 = (dev.addr() as c_uint).saturating_sub(1);
     NVML_SUCCESS
 }
 #[no_mangle]
@@ -1473,8 +1474,7 @@ pub unsafe extern "C" fn nvmlDeviceGetHandleByIndex_v2(
     // we give each device a handle based on the index that is comes in as.
     //
     // WARNING: add 1 because if we end up using 0 that means a null pointer!
-    let ptr = (index as *mut u8).wrapping_add(1);
-    *dev = ptr.addr() as _;
+    *dev = (index + 1) as _;
     log::debug!(
         "[CALL] {}: gpu index {} given id {:?}",
         "nvmlDeviceGetHandleByIndex_v2",
