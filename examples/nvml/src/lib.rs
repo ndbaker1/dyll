@@ -2535,15 +2535,14 @@ pub unsafe extern "C" fn nvmlDeviceGetPersistenceMode(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetArchitecture(
-    arg0: nvmlDevice_t,
-    arg1: *mut nvmlDeviceArchitecture_t,
+    _: nvmlDevice_t,
+    arch: *mut nvmlDeviceArchitecture_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetArchitecture: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut nvmlDeviceArchitecture_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetArchitecture"));
     log::debug!("[CALL] {}", "nvmlDeviceGetArchitecture");
-    nvmlDeviceGetArchitecture(arg0, arg1)
+    // Blackwell, consistent with the cuda compute 12.0 reported by
+    // nvmlDeviceGetCudaComputeCapability.
+    *arch = NVML_DEVICE_ARCH_BLACKWELL;
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetCpuAffinityWithinScope(
