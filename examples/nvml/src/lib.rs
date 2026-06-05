@@ -4481,17 +4481,16 @@ pub unsafe extern "C" fn nvmlDeviceGetPcieLinkMaxSpeed(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetGpuInstanceProfileInfo(
-    arg0: nvmlDevice_t,
-    arg1: c_uint,
-    arg2: *mut nvmlGpuInstanceProfileInfo_t,
+    _: nvmlDevice_t,
+    _: c_uint,
+    _: *mut nvmlGpuInstanceProfileInfo_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetGpuInstanceProfileInfo: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: c_uint,
-        arg2: *mut nvmlGpuInstanceProfileInfo_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetGpuInstanceProfileInfo"));
     log::debug!("[CALL] {}", "nvmlDeviceGetGpuInstanceProfileInfo");
-    nvmlDeviceGetGpuInstanceProfileInfo(arg0, arg1, arg2)
+    // This mock GPU exposes no MIG profiles. go-nvml's VisitMigProfiles
+    // treats NOT_SUPPORTED as "profile unavailable" and skips it, whereas
+    // any other non-success (e.g. the forwarded Uninitialized) is a hard
+    // error during device enumeration.
+    NVML_ERROR_NOT_SUPPORTED
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetMigDeviceHandleByIndex(
