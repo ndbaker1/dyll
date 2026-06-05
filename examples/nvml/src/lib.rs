@@ -17,6 +17,34 @@ const OPT_DRIVER_VERSION: &str = "driver-version";
 const OPT_CLIQUE_ID: &str = "clique-id";
 const OPT_CLUSTER_UUID: &str = "cluster-uuid";
 
+/// Number of GPUs this process should report, discovered by counting the
+/// `/dev/nvidiaN` device nodes the NVIDIA container runtime injects — one per
+/// GPU exposed to the container. Control nodes (`nvidiactl`, `nvidia-uvm`,
+/// `nvidia-modeset`, `nvidia-cap*`, ...) are skipped because their suffix isn't
+/// purely numeric. Falls back to 4 (logging a warning) when none are found,
+/// since a process loading this shim is expected to have GPUs mounted.
+fn visible_gpu_count() -> u32 {
+    let Ok(entries) = std::fs::read_dir("/dev") else {
+        log::warn!("could not read /dev to count GPUs; reporting 4");
+        return 4;
+    };
+    let mut count = 0u32;
+    for entry in entries.flatten() {
+        if let Some(name) = entry.file_name().to_str() {
+            if let Some(suffix) = name.strip_prefix("nvidia") {
+                if !suffix.is_empty() && suffix.bytes().all(|b| b.is_ascii_digit()) {
+                    count += 1;
+                }
+            }
+        }
+    }
+    if count == 0 {
+        log::warn!("no /dev/nvidiaN device nodes found; reporting 4");
+        return 4;
+    }
+    count
+}
+
 // The function we want to run at load time.
 #[no_mangle]
 pub extern "C" fn custom_init_function() {
@@ -1437,6 +1465,11 @@ pub unsafe extern "C" fn nvmlDeviceGetHandleByIndex_v2(
     dev: *mut nvmlDevice_t,
 ) -> nvmlReturn_t {
     log::debug!("[CALL] {}", "nvmlDeviceGetHandleByIndex_v2");
+    // Reject indices past the number of GPUs we actually report, matching real
+    // NVML — otherwise we'd mint handles for devices that don't exist.
+    if index >= visible_gpu_count() {
+        return NVML_ERROR_INVALID_ARGUMENT;
+    }
     // we give each device a handle based on the index that is comes in as.
     //
     // WARNING: add 1 because if we end up using 0 that means a null pointer!
@@ -2886,7 +2919,7 @@ pub unsafe extern "C" fn nvmlComputeInstanceGetInfo_v2(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetCount_v2(arg0: *mut c_uint) -> nvmlReturn_t {
-    *arg0 = 4;
+    *arg0 = visible_gpu_count();
     NVML_SUCCESS
 }
 #[no_mangle]
