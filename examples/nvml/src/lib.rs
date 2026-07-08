@@ -2155,15 +2155,17 @@ pub unsafe extern "C" fn nvmlDeviceGetFanSpeedRPM(
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetAddressingMode(
-    arg0: nvmlDevice_t,
-    arg1: *mut nvmlDeviceAddressingMode_t,
+    _: nvmlDevice_t,
+    mode: *mut nvmlDeviceAddressingMode_t,
 ) -> nvmlReturn_t {
-    let nvmlDeviceGetAddressingMode: extern "C" fn(
-        arg0: nvmlDevice_t,
-        arg1: *mut nvmlDeviceAddressingMode_t,
-    ) -> nvmlReturn_t = std::mem::transmute(get_sym("nvmlDeviceGetAddressingMode"));
     log::debug!("[CALL] {}", "nvmlDeviceGetAddressingMode");
-    nvmlDeviceGetAddressingMode(arg0, arg1)
+    *mode = nvmlDeviceAddressingMode_v1_t {
+        // ATS is the default on gb200.
+        value: NVML_DEVICE_ADDRESSING_MODE_ATS,
+        // version is not important.
+        version: 0,
+    };
+    NVML_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn nvmlDeviceGetGpuInstancePossiblePlacements_v2(
