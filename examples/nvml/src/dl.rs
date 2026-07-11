@@ -2,9 +2,16 @@ use libc::c_char;
 use std::ffi::{c_void, CString};
 use std::sync::Once;
 
+extern "C" fn noop_fn() -> i32 {
+    0
+}
+
 pub fn get_sym(name: &str) -> *const c_void {
     let name_cstring = CString::new(name).expect("symbol should be convertible to cstring");
-    let handle = load_embedded_lib();
+    let Ok(handle) = load_embedded_lib() else {
+        // when the library is empty, just return a function that does nothing.
+        return noop_fn as *const c_void;
+    };
     let sym = unsafe { libc::dlsym(handle, name_cstring.as_ptr() as *const c_char) };
     if sym.is_null() {
         panic!("Symbol not found: {}", name);
@@ -31,7 +38,7 @@ static INIT: Once = Once::new();
 /// The memfd is created with a name for debugging purposes, then written with the
 /// embedded library bytes. A path like /proc/self/fd/<fd> is constructed for dlopen.
 #[cfg(target_os = "linux")]
-fn load_embedded_lib() -> *mut c_void {
+fn load_embedded_lib() -> Result<*mut c_void, &'static str> {
     INIT.call_once(|| unsafe {
         // Create anonymous file in memory
         let fd = libc::syscall(libc::SYS_memfd_create, c"embedded_lib".as_ptr(), 0);
@@ -54,17 +61,17 @@ fn load_embedded_lib() -> *mut c_void {
 
         // Load library from memfd
         let handle = libc::dlopen(path.as_ptr() as *const c_char, libc::RTLD_LAZY);
-        if handle.is_null() {
-            panic!("Failed to dlopen embedded library");
+        if !handle.is_null() {
+            LIB_HANDLE = Some(handle)
+        } else {
+            log::debug!("failed to dlopen library")
         }
-
-        LIB_HANDLE = Some(handle)
     });
-    unsafe { LIB_HANDLE.unwrap() }
+    unsafe { LIB_HANDLE.ok_or("missing handle") }
 }
 
 // catch-all for non-supported platforms.
 #[cfg(not(target_os = "linux"))]
-fn load_embedded_lib() -> *mut c_void {
-    unsafe { LIB_HANDLE.unwrap() }
+fn load_embedded_lib() -> Result<*mut c_void, &'static str> {
+    unsafe { LIB_HANDLE.ok_or("missing handle") }
 }
