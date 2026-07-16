@@ -22,7 +22,9 @@ gcc -shared -fPIC -g -o libtest.so test_lib.c
 
 # Generate stub library
 echo "Generating stub library..."
+rustup component add rustfmt
 cargo run --release -- --output-dir test_output --lib-path libtest.so header test_lib.h
+(cd test_output && cargo fmt)
 
 # Build the stub library
 echo "Building stub library..."
@@ -39,6 +41,6 @@ echo "Running test program with dlopen..."
 ./test_program_dlopen
 
 # echo "Running test program with LD_PRELOAD..."
-# LD_PRELOAD=$(pwd)/test_output/target/release/libmock_lib.so ./test_program_preload || echo "LD_PRELOAD test failed (known issue)"
+# LDz_PRELOAD=$(pwd)/test_output/target/release/libmock_lib.so ./test_program_preload || echo "LD_PRELOAD test failed (known issue)"
 
 echo "=== Test completed successfully! ==="

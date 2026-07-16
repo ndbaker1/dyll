@@ -12,5 +12,5 @@ clean:
 test:
 	cargo test
 
-e2e:
+test-e2e:
 	cd tests && ./test.sh

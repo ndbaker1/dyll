@@ -21,8 +21,7 @@ pub fn generate_function_stubs(
             let params: Vec<_> = sig
                 .params
                 .iter()
-                .enumerate()
-                .map(|(i, _)| format_ident!("arg{}", i))
+                .map(|(name, _)| format_ident!("{}", name))
                 .collect();
 
             let args: Vec<_> = sig
