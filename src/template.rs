@@ -28,6 +28,7 @@ pub fn copy_templates_to_output(
             }
             fs::write(dst, content)?;
         }
+
         Ok(())
     }
 
