@@ -1,7 +1,7 @@
 use clap::Parser;
 use dyll::{
     cli::{Cli, Commands},
-    header,
+    providers,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -10,6 +10,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Header(ref args) => header::run(&cli, args),
+        Commands::Header(ref args) => providers::header::run(&cli, args),
     }
 }

@@ -1,11 +1,13 @@
 [package]
-name = "mock_lib"
+name = "mock"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
+ctor = "1.0.9"
+env_logger = "0.11.11"
+libc = "0.2.186"
 log = "0.4.33"
-libc = "0.2"
 
 [lib]
 crate-type = ["cdylib"]

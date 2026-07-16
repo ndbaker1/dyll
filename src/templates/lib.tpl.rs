@@ -1,9 +1,11 @@
-use libc::c_char;
-use std::ffi::{c_void, CString};
+#[allow(unused_imports)]
+#[allow(nonstandard_style)]
+use libc::*;
+use std::ffi::*;
 use std::sync::Once;
 
-extern "C" fn noop_fn() -> i32 {
-    0
+extern "C" fn noop_fn() -> c_int {
+    return 0;
 }
 
 pub fn get_sym(name: &str) -> *const c_void {

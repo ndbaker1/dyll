@@ -2,7 +2,7 @@ use quote::{format_ident, quote};
 use syn::{parse_str, Ident, Type};
 
 use crate::FunctionSignature;
-use std::{collections::HashMap, str::FromStr};
+use std::collections::HashMap;
 
 pub fn generate_function_stubs(
     functions: &[String],
@@ -13,15 +13,17 @@ pub fn generate_function_stubs(
 
     for func in functions {
         let func_name: Ident = parse_str(func)?;
-        let pre_call =
-            proc_macro2::TokenStream::from_str(&format!("eprintln!(\"[CALL] {}\")", func))?;
-        let post_call = proc_macro2::TokenStream::from_str("")?;
-
         let stub_code = if let Some(sig) = signatures.get(func) {
             let params: Vec<_> = sig
                 .params
                 .iter()
                 .map(|(name, _)| format_ident!("{}", name))
+                .collect();
+
+            let types: Vec<Type> = sig
+                .params
+                .iter()
+                .filter_map(|(_, ty)| parse_str(ty).ok())
                 .collect();
 
             let args: Vec<_> = sig
@@ -37,32 +39,60 @@ pub fn generate_function_stubs(
             let return_type: Type = parse_str(&sig.return_type)?;
 
             quote! {
-                #[no_mangle]
+                #[allow(non_snake_case)]
+                mod #func_name {
+                    #[allow(unused)]
+                    use super::*;
+
+                    pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type> = None;
+
+                    pub fn register_handler(handle: &'static impl Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type) {
+                        unsafe { HANDLE = Some(handle) }
+                    }
+                }
+
+                #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #func_name(#(#args),*) -> #return_type {
-                    let #func_name: extern "C" fn(#(#args),*) -> #return_type = std::mem::transmute(get_sym(#func));
-                    #pre_call;
-                    let ret = #func_name(#(#params),*);
-                    #post_call;
-                    ret
+                    let #func_name: extern "C" fn(#(#args),*) -> #return_type = unsafe { std::mem::transmute(get_sym(#func)) };
+                    match unsafe { #func_name::HANDLE } {
+                        Some(handler) => handler(#func_name, #(#params),*),
+                        None => #func_name(#(#params),*),
+                    }
                 }
             }
         } else {
             // Generic stub - unknown signature
             quote! {
-                #[no_mangle]
+                #[allow(non_snake_case)]
+                mod #func_name {
+                    #[allow(unused)]
+                    use super::*;
+
+                    pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn())> = None;
+
+                    pub fn register_handler(handler: &'static impl Fn(extern "C" fn())) {
+                        unsafe { HANDLE = Some(handler) }
+                    }
+                }
+
+                #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #func_name() {
-                    let #func_name: extern "C" fn() = std::mem::transmute(get_sym(#func));
-                    #pre_call;
-                    #func_name();
-                    #post_call;
+                    let #func_name: extern "C" fn() = unsafe { std::mem::transmute(get_sym(#func)) };
+                    match unsafe { #func_name::HANDLE } {
+                        Some(handler) => handler(#func_name),
+                        None => #func_name(),
+                    }
                 }
             }
         };
 
+        let tree = &syn::parse2(stub_code.clone())?;
+        let code = &prettyplease::unparse(tree);
+
         if signatures.contains_key(func) {
-            known_stubs.push_str(&stub_code.to_string());
+            known_stubs.push_str(code);
         } else {
-            unknown_stubs.push_str(&stub_code.to_string());
+            unknown_stubs.push_str(code);
         }
     }
 

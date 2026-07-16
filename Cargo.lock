@@ -169,6 +169,7 @@ dependencies = [
  "bindgen",
  "clap",
  "goblin",
+ "prettyplease",
  "proc-macro2",
  "quote",
  "regex",

@@ -1,0 +1,184 @@
+#[allow(unused_imports)]
+#[allow(nonstandard_style)]
+use libc::*;
+use std::ffi::*;
+use std::sync::Once;
+
+extern "C" fn noop_fn() -> c_int {
+    return 0;
+}
+
+pub fn get_sym(name: &str) -> *const c_void {
+    let name_cstring = CString::new(name).expect("symbol should be convertible to cstring");
+    let Ok(handle) = load_embedded_lib() else {
+        // when the library is empty, just return a function that does nothing.
+        return noop_fn as *const c_void;
+    };
+    let sym = unsafe { libc::dlsym(handle, name_cstring.as_ptr() as *const c_char) };
+    if sym.is_null() {
+        panic!("Symbol not found: {}", name);
+    }
+    sym
+}
+
+// the original shared library embedded in the program's static memory.
+const ORIGINAL_SO: &[u8] = include_bytes!(env!("SHARED_LIBRARY_PATH"));
+
+static mut LIB_HANDLE: Option<*mut c_void> = None;
+static INIT: Once = Once::new();
+
+/// Loads the embedded shared library using memfd_create instead of a tempfile.
+///
+/// memfd_create creates an anonymous file in memory that can be passed to dlopen.
+/// Benefits over using a temporary file:
+/// - No disk I/O: The library stays in memory, avoiding slow disk writes/reads
+/// - Security: No temporary files left on disk that could be exploited or inspected
+/// - Atomicity: The file is created and used entirely in memory, no filesystem state
+/// - Cleanup: Automatically cleaned up when the process exits, no manual deletion needed
+/// - Performance: Faster loading since no filesystem operations are involved
+///
+/// The memfd is created with a name for debugging purposes, then written with the
+/// embedded library bytes. A path like /proc/self/fd/<fd> is constructed for dlopen.
+#[cfg(target_os = "linux")]
+fn load_embedded_lib() -> Result<*mut c_void, &'static str> {
+    INIT.call_once(|| unsafe {
+        // Create anonymous file in memory
+        let fd = libc::syscall(libc::SYS_memfd_create, c"embedded_lib".as_ptr(), 0);
+        if fd < 0 {
+            panic!("memfd_create failed");
+        }
+
+        // Write library to memfd
+        let written = libc::write(
+            fd as i32,
+            ORIGINAL_SO.as_ptr() as *const c_void,
+            ORIGINAL_SO.len(),
+        );
+        if written != ORIGINAL_SO.len() as isize {
+            panic!("Failed to write to memfd");
+        }
+
+        // Create path to memfd
+        let path = format!("/proc/self/fd/{}\0", fd);
+
+        // Load library from memfd
+        let handle = libc::dlopen(path.as_ptr() as *const c_char, libc::RTLD_LAZY);
+        if !handle.is_null() {
+            LIB_HANDLE = Some(handle)
+        } else {
+            log::debug!("failed to dlopen library")
+        }
+    });
+    unsafe { LIB_HANDLE.ok_or("missing handle") }
+}
+
+// catch-all for non-supported platforms.
+#[cfg(not(target_os = "linux"))]
+fn load_embedded_lib() -> Result<*mut c_void, &'static str> {
+    unsafe { LIB_HANDLE.ok_or("missing handle") }
+}
+
+#[allow(non_snake_case)]
+mod print_hello {
+    #[allow(unused)]
+    use super::*;
+    pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn() -> ()) -> ()> = None;
+    pub fn register_handler(handle: &'static impl Fn(extern "C" fn() -> ()) -> ()) {
+        unsafe { HANDLE = Some(handle) }
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn print_hello() -> () {
+    let print_hello: extern "C" fn() -> () = unsafe {
+        std::mem::transmute(get_sym("print_hello"))
+    };
+    match unsafe { print_hello::HANDLE } {
+        Some(handler) => handler(print_hello),
+        None => print_hello(),
+    }
+}
+#[allow(non_snake_case)]
+mod add {
+    #[allow(unused)]
+    use super::*;
+    pub static mut HANDLE: Option<
+        &'static dyn Fn(
+            extern "C" fn(a: c_int, b: c_int) -> c_int,
+            c_int,
+            c_int,
+        ) -> c_int,
+    > = None;
+    pub fn register_handler(
+        handle: &'static impl Fn(
+            extern "C" fn(a: c_int, b: c_int) -> c_int,
+            c_int,
+            c_int,
+        ) -> c_int,
+    ) {
+        unsafe { HANDLE = Some(handle) }
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn add(a: c_int, b: c_int) -> c_int {
+    let add: extern "C" fn(a: c_int, b: c_int) -> c_int = unsafe {
+        std::mem::transmute(get_sym("add"))
+    };
+    match unsafe { add::HANDLE } {
+        Some(handler) => handler(add, a, b),
+        None => add(a, b),
+    }
+}
+#[allow(non_snake_case)]
+mod add_and_double {
+    #[allow(unused)]
+    use super::*;
+    pub static mut HANDLE: Option<
+        &'static dyn Fn(
+            extern "C" fn(a: c_int, b: c_int) -> c_int,
+            c_int,
+            c_int,
+        ) -> c_int,
+    > = None;
+    pub fn register_handler(
+        handle: &'static impl Fn(
+            extern "C" fn(a: c_int, b: c_int) -> c_int,
+            c_int,
+            c_int,
+        ) -> c_int,
+    ) {
+        unsafe { HANDLE = Some(handle) }
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn add_and_double(a: c_int, b: c_int) -> c_int {
+    let add_and_double: extern "C" fn(a: c_int, b: c_int) -> c_int = unsafe {
+        std::mem::transmute(get_sym("add_and_double"))
+    };
+    match unsafe { add_and_double::HANDLE } {
+        Some(handler) => handler(add_and_double, a, b),
+        None => add_and_double(a, b),
+    }
+}
+#[allow(non_snake_case)]
+mod set_five {
+    #[allow(unused)]
+    use super::*;
+    pub static mut HANDLE: Option<
+        &'static dyn Fn(extern "C" fn(ptr: *mut c_int) -> (), *mut c_int) -> (),
+    > = None;
+    pub fn register_handler(
+        handle: &'static impl Fn(extern "C" fn(ptr: *mut c_int) -> (), *mut c_int) -> (),
+    ) {
+        unsafe { HANDLE = Some(handle) }
+    }
+}
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn set_five(ptr: *mut c_int) -> () {
+    let set_five: extern "C" fn(ptr: *mut c_int) -> () = unsafe {
+        std::mem::transmute(get_sym("set_five"))
+    };
+    match unsafe { set_five::HANDLE } {
+        Some(handler) => handler(set_five, ptr),
+        None => set_five(ptr),
+    }
+}

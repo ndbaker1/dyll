@@ -5,7 +5,6 @@ all:
 
 clean:
 	cargo clean
-	rm -rf tests/test_output
 	rm -f tests/libtest.so
 	rm -f tests/test_program_dlopen tests/test_program_preload
 

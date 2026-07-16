@@ -6,8 +6,9 @@ typedef void (*print_hello_func)();
 typedef int (*add_and_double_func)(int, int);
 typedef void (*set_five_func)(int *);
 
-int main() {
-    void *handle = dlopen("./test_output/target/release/libmock_lib.so", RTLD_LAZY);
+int main(int argc, char *argv[]) {
+    // accepts .so as first argument.
+    void *handle = dlopen(argv[1], RTLD_LAZY);
     if (!handle) {
         fprintf(stderr, "Failed to load library: %s\n", dlerror());
         return 1;

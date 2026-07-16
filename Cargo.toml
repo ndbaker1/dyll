@@ -13,6 +13,7 @@ quote = "1.0"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 proc-macro2 = "1.0.106"
+prettyplease = "0.2.37"
 
 [dev-dependencies]
 tempfile = "3.0"
