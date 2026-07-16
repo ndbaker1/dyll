@@ -3723,11 +3723,11 @@ pub unsafe extern "C" fn cuGraphKernelNodeGetAttribute(
     cuGraphKernelNodeGetAttribute(arg0, arg1, arg2)
 }
 #[no_mangle]
-pub unsafe extern "C" fn cuDeviceGet(arg0: *mut CUdevice, arg1: c_int) -> CUresult {
-    let cuDeviceGet: extern "C" fn(arg0: *mut CUdevice, arg1: c_int) -> CUresult =
-        std::mem::transmute(get_sym("cuDeviceGet"));
+pub unsafe extern "C" fn cuDeviceGet(device: *mut CUdevice, ordinal: c_int) -> CUresult {
     log::debug!("[CALL] {}", "cuDeviceGet");
-    cuDeviceGet(arg0, arg1)
+    // TODO: test mapping
+    *device = ordinal;
+    CUDA_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn cuGraphRetainUserObject(
