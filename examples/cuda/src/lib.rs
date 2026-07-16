@@ -990,11 +990,10 @@ pub unsafe extern "C" fn cuCtxResetPersistingL2Cache() -> CUresult {
     cuCtxResetPersistingL2Cache()
 }
 #[no_mangle]
-pub unsafe extern "C" fn cuDeviceGetCount(arg0: *mut c_int) -> CUresult {
-    let cuDeviceGetCount: extern "C" fn(arg0: *mut c_int) -> CUresult =
-        std::mem::transmute(get_sym("cuDeviceGetCount"));
+pub unsafe extern "C" fn cuDeviceGetCount(device_count: *mut c_int) -> CUresult {
     log::debug!("[CALL] {}", "cuDeviceGetCount");
-    cuDeviceGetCount(arg0)
+    *device_count = 4;
+    CUDA_SUCCESS
 }
 #[no_mangle]
 pub unsafe extern "C" fn cuGraphExecKernelNodeSetParams_v2(
