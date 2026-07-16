@@ -16,3 +16,7 @@ proc-macro2 = "1.0.106"
 
 [dev-dependencies]
 tempfile = "3.0"
+
+[[bin]]
+name = "dyll"
+path = "src/bin/dyll.rs"

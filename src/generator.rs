@@ -12,7 +12,7 @@ pub fn generate_function_stubs(
     let mut unknown_stubs = String::new();
 
     for func in functions {
-        let func_name: Ident = parse_str(&func)?;
+        let func_name: Ident = parse_str(func)?;
         let pre_call =
             proc_macro2::TokenStream::from_str(&format!("eprintln!(\"[CALL] {}\")", func))?;
         let post_call = proc_macro2::TokenStream::from_str("")?;

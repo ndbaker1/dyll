@@ -33,7 +33,7 @@ pub fn syn_type_to_rust(ty: &Type) -> String {
                     type_tuple
                         .elems
                         .iter()
-                        .map(|t| syn_type_to_rust(t))
+                        .map(syn_type_to_rust)
                         .collect::<Vec<_>>()
                         .join(", ")
                 )
@@ -74,7 +74,7 @@ pub fn syn_pat_type_to_rust(pt: &PatType) -> (String, String) {
                         type_tuple
                             .elems
                             .iter()
-                            .map(|t| syn_type_to_rust(t))
+                            .map(syn_type_to_rust)
                             .collect::<Vec<_>>()
                             .join(", ")
                     ),
