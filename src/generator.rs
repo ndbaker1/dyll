@@ -2,7 +2,7 @@ use quote::{format_ident, quote};
 use syn::{parse_str, Ident, Type};
 
 use crate::FunctionSignature;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 pub fn generate_function_stubs(
     functions: &[String],
@@ -13,6 +13,9 @@ pub fn generate_function_stubs(
 
     for func in functions {
         let func_name: Ident = parse_str(&func)?;
+        let pre_call =
+            proc_macro2::TokenStream::from_str(&format!("eprintln!(\"[CALL] {}\")", func))?;
+        let post_call = proc_macro2::TokenStream::from_str("")?;
 
         let stub_code = if let Some(sig) = signatures.get(func) {
             let params: Vec<_> = sig
@@ -25,10 +28,9 @@ pub fn generate_function_stubs(
             let args: Vec<_> = sig
                 .params
                 .iter()
-                .enumerate()
-                .filter_map(|(i, typ)| {
-                    let arg = format_ident!("arg{}", i);
-                    let typ: Type = parse_str(typ).ok()?;
+                .filter_map(|typ| {
+                    let arg = format_ident!("{}", typ.0);
+                    let typ: Type = parse_str(&typ.1).ok()?;
                     Some(quote! { #arg: #typ })
                 })
                 .collect();
@@ -39,8 +41,10 @@ pub fn generate_function_stubs(
                 #[no_mangle]
                 pub unsafe extern "C" fn #func_name(#(#args),*) -> #return_type {
                     let #func_name: extern "C" fn(#(#args),*) -> #return_type = std::mem::transmute(get_sym(#func));
-                    eprintln!("[CALL] {}", #func);
-                    #func_name(#(#params),*)
+                    #pre_call;
+                    let ret = #func_name(#(#params),*);
+                    #post_call;
+                    ret
                 }
             }
         } else {
@@ -49,8 +53,9 @@ pub fn generate_function_stubs(
                 #[no_mangle]
                 pub unsafe extern "C" fn #func_name() {
                     let #func_name: extern "C" fn() = std::mem::transmute(get_sym(#func));
-                    eprintln!("[CALL] {}", #func);
-                    #func_name()
+                    #pre_call;
+                    #func_name();
+                    #post_call;
                 }
             }
         };

@@ -9,6 +9,6 @@ pub mod template;
 #[derive(Debug, Clone)]
 pub struct FunctionSignature {
     pub name: String,
-    pub params: Vec<String>,
+    pub params: Vec<(String,String)>,
     pub return_type: String,
 }

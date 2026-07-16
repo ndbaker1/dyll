@@ -1,3 +1,4 @@
+use quote::ToTokens;
 use std::collections::HashMap;
 use syn::{parse_str, FnArg::Typed, ForeignItem, Item, PatType, Type};
 
@@ -39,6 +40,48 @@ pub fn syn_type_to_rust(ty: &Type) -> String {
             }
         }
         _ => "c_void".to_string(), // fallback
+    }
+}
+
+pub fn syn_pat_type_to_rust(pt: &PatType) -> (String, String) {
+    let name = pt.pat.to_token_stream().to_string();
+    match pt.ty.as_ref() {
+        Type::Path(type_path) => {
+            // Get the last segment for the type name
+            if let Some(last) = type_path.path.segments.last() {
+                (name, last.ident.to_string())
+            } else {
+                (name, "c_void".to_string())
+            }
+        }
+        Type::Ptr(type_ptr) => {
+            let mutability = if type_ptr.mutability.is_some() {
+                "mut"
+            } else {
+                "const"
+            };
+            let elem = syn_type_to_rust(&type_ptr.elem);
+            (name, format!("*{} {}", mutability, elem))
+        }
+        Type::Tuple(type_tuple) => {
+            if type_tuple.elems.is_empty() {
+                (name, "()".to_string())
+            } else {
+                (
+                    name,
+                    format!(
+                        "({})",
+                        type_tuple
+                            .elems
+                            .iter()
+                            .map(|t| syn_type_to_rust(t))
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ),
+                )
+            }
+        }
+        _ => (name, "c_void".to_string()), // fallback
     }
 }
 
@@ -106,7 +149,7 @@ impl BindgenProvider {
                                     .inputs
                                     .iter()
                                     .filter_map(|arg| match arg {
-                                        Typed(PatType { ty, .. }) => Some(syn_type_to_rust(ty)),
+                                        Typed(pt) => Some(syn_pat_type_to_rust(pt)),
                                         _ => None,
                                     })
                                     .collect();
