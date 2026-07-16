@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 /// Returns `None` on non-Linux platforms or if discovery fails.
 #[cfg(target_os = "linux")]
 pub fn discover_self_so() -> Option<PathBuf> {
-    let self_addr = discover_self_so as usize;
+    let self_addr = discover_self_so as *const () as usize;
 
     let file = std::fs::File::open("/proc/self/maps").ok()?;
     let reader = std::io::BufReader::new(file);
