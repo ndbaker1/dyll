@@ -40,7 +40,7 @@ pub fn generate_function_stubs(
 
             quote! {
                 #[allow(unused)]
-                mod #func_name {
+                pub mod #func_name {
                     use super::*;
                     pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type> = None;
                     pub fn register_handler(handle: &'static impl Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type) {
@@ -66,7 +66,7 @@ pub fn generate_function_stubs(
             // Generic stub - unknown signature
             quote! {
                 #[allow(unused)]
-                mod #func_name {
+                pub mod #func_name {
                     use super::*;
                     pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn())> = None;
                     pub fn register_handler(handler: &'static impl Fn(extern "C" fn())) {

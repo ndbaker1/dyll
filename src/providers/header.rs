@@ -49,86 +49,6 @@ pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-pub fn syn_type_to_rust(ty: &Type) -> String {
-    match ty {
-        Type::Path(type_path) => {
-            // Get the last segment for the type name
-            if let Some(last) = type_path.path.segments.last() {
-                last.ident.to_string()
-            } else {
-                "c_void".to_string()
-            }
-        }
-        Type::Ptr(type_ptr) => {
-            let mutability = if type_ptr.mutability.is_some() {
-                "mut"
-            } else {
-                "const"
-            };
-            let elem = syn_type_to_rust(&type_ptr.elem);
-            format!("*{} {}", mutability, elem)
-        }
-        Type::Tuple(type_tuple) => {
-            if type_tuple.elems.is_empty() {
-                "()".to_string()
-            } else {
-                format!(
-                    "({})",
-                    type_tuple
-                        .elems
-                        .iter()
-                        .map(syn_type_to_rust)
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                )
-            }
-        }
-        _ => "c_void".to_string(), // fallback
-    }
-}
-
-pub fn syn_pat_type_to_rust(pt: &PatType) -> (String, String) {
-    let name = pt.pat.to_token_stream().to_string();
-    match pt.ty.as_ref() {
-        Type::Path(type_path) => {
-            // Get the last segment for the type name
-            if let Some(last) = type_path.path.segments.last() {
-                (name, last.ident.to_string())
-            } else {
-                (name, "c_void".to_string())
-            }
-        }
-        Type::Ptr(type_ptr) => {
-            let mutability = if type_ptr.mutability.is_some() {
-                "mut"
-            } else {
-                "const"
-            };
-            let elem = syn_type_to_rust(&type_ptr.elem);
-            (name, format!("*{} {}", mutability, elem))
-        }
-        Type::Tuple(type_tuple) => {
-            if type_tuple.elems.is_empty() {
-                (name, "()".to_string())
-            } else {
-                (
-                    name,
-                    format!(
-                        "({})",
-                        type_tuple
-                            .elems
-                            .iter()
-                            .map(syn_type_to_rust)
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    ),
-                )
-            }
-        }
-        _ => (name, "c_void".to_string()), // fallback
-    }
-}
-
 pub struct BindgenProvider {
     header_path: String,
 }
@@ -158,6 +78,7 @@ impl BindgenProvider {
             .prepend_enum_name(false)
             .array_pointers_in_arguments(true)
             .sort_semantically(true)
+            .use_core()
             .generate()
             .map_err(|e| format!("Bindgen failed: {}", e))?;
 
@@ -186,14 +107,19 @@ impl BindgenProvider {
                                 let name = func.sig.ident.to_string();
                                 let return_type = match &func.sig.output {
                                     syn::ReturnType::Default => "()".to_string(),
-                                    syn::ReturnType::Type(_, ty) => syn_type_to_rust(ty),
+                                    syn::ReturnType::Type(_, ty) => {
+                                        ty.to_token_stream().to_string()
+                                    }
                                 };
                                 let params = func
                                     .sig
                                     .inputs
                                     .iter()
                                     .filter_map(|arg| match arg {
-                                        Typed(pt) => Some(syn_pat_type_to_rust(pt)),
+                                        Typed(PatType { pat, ty, .. }) => Some((
+                                            pat.to_token_stream().to_string(),
+                                            ty.to_token_stream().to_string(),
+                                        )),
                                         _ => None,
                                     })
                                     .collect();
