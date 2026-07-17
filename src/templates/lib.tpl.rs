@@ -13,6 +13,7 @@ pub fn get_sym(name: &str) -> *const c_void {
     let name_cstring = CString::new(name).expect("symbol should be convertible to cstring");
     let Ok(handle) = load_embedded_lib() else {
         // when the library is empty, just return a function that does nothing.
+        tracing::warn!("missing embedded library, returning stub");
         return noop_fn as *const c_void;
     };
     let sym = unsafe { libc::dlsym(handle, name_cstring.as_ptr() as *const c_char) };
@@ -66,8 +67,6 @@ fn load_embedded_lib() -> Result<*mut c_void, &'static str> {
         let handle = libc::dlopen(path.as_ptr() as *const c_char, libc::RTLD_LAZY);
         if !handle.is_null() {
             LIB_HANDLE = Some(handle)
-        } else {
-            tracing::debug!("failed to dlopen library")
         }
     });
     unsafe { LIB_HANDLE.ok_or("missing handle") }

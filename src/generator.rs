@@ -42,9 +42,7 @@ pub fn generate_function_stubs(
                 #[allow(unused)]
                 mod #func_name {
                     use super::*;
-
                     pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type> = None;
-
                     pub fn register_handler(handle: &'static impl Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type) {
                         unsafe { HANDLE = Some(handle) }
                     }
@@ -52,12 +50,16 @@ pub fn generate_function_stubs(
 
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #func_name(#(#args),*) -> #return_type {
-                    tracing::trace!(concat!("[CALL] ", stringify!(#func_name)));
+                    let span = tracing::span!(tracing::Level::TRACE, stringify!(#func_name));
+                    let _enter = span.enter();
+                    tracing::trace!("entry()");
                     let #func_name: extern "C" fn(#(#args),*) -> #return_type = unsafe { std::mem::transmute(get_sym(#func)) };
-                    match unsafe { #func_name::HANDLE } {
+                    let ret = match unsafe { #func_name::HANDLE } {
                         Some(handler) => handler(#func_name, #(#params),*),
                         None => #func_name(#(#params),*),
-                    }
+                    };
+                    tracing::trace!("exit()");
+                    ret
                 }
             }
         } else {
@@ -66,9 +68,7 @@ pub fn generate_function_stubs(
                 #[allow(unused)]
                 mod #func_name {
                     use super::*;
-
                     pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn())> = None;
-
                     pub fn register_handler(handler: &'static impl Fn(extern "C" fn())) {
                         unsafe { HANDLE = Some(handler) }
                     }
@@ -76,12 +76,16 @@ pub fn generate_function_stubs(
 
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #func_name() {
-                    tracing::trace!(concat!("[CALL] ", stringify!(#func_name)));
+                    let span = tracing::span!(tracing::Level::TRACE, stringify!(#func_name));
+                    let _enter = span.enter();
+                    tracing::trace!("entry()");
                     let #func_name: extern "C" fn() = unsafe { std::mem::transmute(get_sym(#func)) };
-                    match unsafe { #func_name::HANDLE } {
+                    let ret = match unsafe { #func_name::HANDLE } {
                         Some(handler) => handler(#func_name),
                         None => #func_name(),
-                    }
+                    };
+                    tracing::trace!("exit()");
+                    ret
                 }
             }
         };
