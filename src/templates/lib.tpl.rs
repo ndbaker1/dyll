@@ -1,5 +1,6 @@
 #[allow(unused_imports)]
 #[allow(nonstandard_style)]
+#[allow(non_snake_case)]
 use libc::*;
 use std::ffi::*;
 use std::sync::Once;
@@ -66,7 +67,7 @@ fn load_embedded_lib() -> Result<*mut c_void, &'static str> {
         if !handle.is_null() {
             LIB_HANDLE = Some(handle)
         } else {
-            log::debug!("failed to dlopen library")
+            tracing::debug!("failed to dlopen library")
         }
     });
     unsafe { LIB_HANDLE.ok_or("missing handle") }

@@ -13,6 +13,10 @@ pub struct Cli {
     #[arg(short = 'l', long = "lib-path")]
     pub lib_path: PathBuf,
 
+    /// function symbols to skip.
+    #[arg(short = 's', long = "skip", value_delimiter = ',')]
+    pub skipped_symbols: Vec<String>,
+
     #[command(subcommand)]
     pub command: Commands,
 }

@@ -5,17 +5,24 @@ use syn::{parse_str, FnArg::Typed, ForeignItem, Item, PatType, Type};
 use super::SignatureProvider;
 use crate::{providers::BindgenResult, FunctionSignature};
 
-use tracing::info;
-
 use crate::cli::{Cli, HeaderArgs};
 use crate::elf;
 use crate::generator;
 use crate::templates;
 
 pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let functions = elf::extract_function_symbols(&cli.lib_path)?;
+    let functions: Vec<String> = elf::extract_function_symbols(&cli.lib_path)?
+        .into_iter()
+        .filter(|name| {
+            if cli.skipped_symbols.contains(name) {
+                tracing::info!("skipping symbol: {}", name);
+                return false;
+            }
+            true
+        })
+        .collect();
 
-    info!(
+    tracing::info!(
         "found {} function symbols in {}",
         functions.len(),
         cli.lib_path.display(),
@@ -26,7 +33,7 @@ pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error
         .get_signatures(cli.lib_path.to_str().unwrap())
         .unwrap_or_default();
 
-    info!(
+    tracing::info!(
         "found {} function signatures in {}",
         bindgen_result.signatures.len(),
         args.header_file.display(),
@@ -35,12 +42,9 @@ pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error
     let (known_stubs, unknown_stubs) =
         generator::generate_function_stubs(&functions, &bindgen_result.signatures)?;
 
-    templates::generate_project(
-        &cli.output_dir,
-        &known_stubs,
-        &unknown_stubs,
-        &bindgen_result.bindings,
-    )?;
+    let lib_code = templates::generate_lib(&known_stubs, &unknown_stubs, &bindgen_result.bindings)?;
+
+    std::fs::write(cli.output_dir.join("dyll.rs"), lib_code.trim())?;
 
     Ok(())
 }

@@ -39,9 +39,8 @@ pub fn generate_function_stubs(
             let return_type: Type = parse_str(&sig.return_type)?;
 
             quote! {
-                #[allow(non_snake_case)]
+                #[allow(unused)]
                 mod #func_name {
-                    #[allow(unused)]
                     use super::*;
 
                     pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type> = None;
@@ -53,6 +52,7 @@ pub fn generate_function_stubs(
 
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #func_name(#(#args),*) -> #return_type {
+                    tracing::trace!(concat!("[CALL] ", stringify!(#func_name)));
                     let #func_name: extern "C" fn(#(#args),*) -> #return_type = unsafe { std::mem::transmute(get_sym(#func)) };
                     match unsafe { #func_name::HANDLE } {
                         Some(handler) => handler(#func_name, #(#params),*),
@@ -63,9 +63,8 @@ pub fn generate_function_stubs(
         } else {
             // Generic stub - unknown signature
             quote! {
-                #[allow(non_snake_case)]
+                #[allow(unused)]
                 mod #func_name {
-                    #[allow(unused)]
                     use super::*;
 
                     pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn())> = None;
@@ -77,6 +76,7 @@ pub fn generate_function_stubs(
 
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #func_name() {
+                    tracing::trace!(concat!("[CALL] ", stringify!(#func_name)));
                     let #func_name: extern "C" fn() = unsafe { std::mem::transmute(get_sym(#func)) };
                     match unsafe { #func_name::HANDLE } {
                         Some(handler) => handler(#func_name),

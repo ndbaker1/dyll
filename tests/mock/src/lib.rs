@@ -2,14 +2,14 @@ include!("dyll.rs");
 
 #[ctor::ctor(unsafe)]
 fn init() {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Debug)
+    tracing_subscriber::fmt::fmt()
+        .with_max_level(tracing::Level::TRACE)
         .init();
 
-    log::debug!("--- MOCK INIT ---");
+    tracing::debug!("--- MOCK INIT ---");
 
     print_hello::register_handler(&|print_hello| {
-        log::info!("hello from mock!");
+        tracing::info!("hello from mock!");
         print_hello();
     });
 }
