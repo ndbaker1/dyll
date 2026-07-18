@@ -19,7 +19,7 @@ folder=../examples/mock-rust
 
 # Generate stub library
 echo "Generating stub library..."
-cargo run --release -- --output-path ${folder}/src/dyll.rs --lib-path libtest.so header ../examples/program/test_lib.h
+cargo run --release -- --output-path ${folder}/src/dyll.rs header ../examples/program/test_lib.h
 
 # Build the stub library
 echo "Building stub library..."

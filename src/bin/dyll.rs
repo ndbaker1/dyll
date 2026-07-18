@@ -1,7 +1,7 @@
 use clap::Parser;
 use dyll::{
     cli::{Cli, Commands},
-    codegen, elf,
+    codegen,
     signature::{self, SignatureProvider},
 };
 
@@ -12,34 +12,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cli = Cli::parse();
 
-    let functions: Vec<String> = elf::extract_function_symbols(&cli.lib_path)?
-        .into_iter()
-        .filter(|name| {
-            if cli.skipped_symbols.contains(name) {
-                tracing::info!("skipping symbol: {}", name);
-                return false;
-            }
-            true
-        })
-        .collect();
-
-    tracing::info!(
-        "found {} function symbols in {}",
-        functions.len(),
-        cli.lib_path.display(),
-    );
-
     let provider = match cli.command {
         Commands::Header(ref args) => {
             signature::header::BindgenProvider::new(args.header_file.to_string_lossy().to_string())
         }
     };
 
-    let bindgen_result = provider
-        .get_signatures(cli.lib_path.to_string_lossy())
-        .unwrap_or_default();
+    let signature_info = provider.get_signatures()?;
 
-    let lib_code = codegen::rust::generate(&functions, &bindgen_result)?;
+    let lib_code = codegen::rust::generate(&signature_info)?;
 
     std::fs::write(
         cli.output_path,

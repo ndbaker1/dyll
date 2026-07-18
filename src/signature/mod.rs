@@ -3,10 +3,7 @@ use crate::FunctionSignature;
 pub mod header;
 
 pub trait SignatureProvider {
-    fn get_signatures(
-        &self,
-        so_path: impl AsRef<str>,
-    ) -> Result<SignatureInfo, Box<dyn std::error::Error>>;
+    fn get_signatures(&self) -> Result<SignatureInfo, Box<dyn std::error::Error>>;
 }
 
 #[derive(Debug, Default)]

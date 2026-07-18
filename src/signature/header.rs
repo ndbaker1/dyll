@@ -16,10 +16,7 @@ impl BindgenProvider {
 }
 
 impl SignatureProvider for BindgenProvider {
-    fn get_signatures(
-        &self,
-        _so_path: impl AsRef<str>,
-    ) -> Result<SignatureInfo, Box<dyn std::error::Error>> {
+    fn get_signatures(&self) -> Result<SignatureInfo, Box<dyn std::error::Error>> {
         self.get_signatures_from_bindgen()
     }
 }
