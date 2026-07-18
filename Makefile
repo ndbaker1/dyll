@@ -1,15 +1,19 @@
-.PHONY: all clean test e2e
+CONTAINER ?= docker
+
+.PHONY: all clean test e2e docker
 
 all:
 	cargo build --release
 
 clean:
 	cargo clean
-	rm -f tests/libtest.so
-	rm -f tests/test_program_dlopen tests/test_program_preload
+	rm -f tests/output/
 
 test:
 	cargo test
 
 test-e2e:
 	cd tests && ./test.sh
+
+containerized:
+	$(CONTAINER) run --rm -it -v "$$(pwd):/src" -w /src $$(docker build -q . -f Dockerfile.dev) $(WHAT)

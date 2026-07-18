@@ -1,10 +1,7 @@
-pub mod providers;
-
+pub mod signature;
 pub mod cli;
-pub mod config;
+pub mod codegen;
 pub mod elf;
-pub mod generator;
-pub mod templates;
 
 #[derive(Debug, Clone)]
 pub struct FunctionSignature {

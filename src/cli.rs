@@ -5,9 +5,9 @@ use std::path::PathBuf;
 #[command(name = "dyll")]
 #[command(about = "Generate stub libraries for dynamic libraries", long_about = None)]
 pub struct Cli {
-    /// Output directory for the generated stub library
-    #[arg(short = 'o', long)]
-    pub output_dir: PathBuf,
+    /// Output path for the generated stub library
+    #[arg(short = 'o', long = "output-path")]
+    pub output_path: PathBuf,
 
     /// Path to the input .so library
     #[arg(short = 'l', long = "lib-path")]

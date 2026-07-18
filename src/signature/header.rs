@@ -1,53 +1,9 @@
 use quote::ToTokens;
 use std::collections::HashMap;
-use syn::{parse_str, FnArg::Typed, ForeignItem, Item, PatType, Type};
+use syn::{parse_str, FnArg::Typed, ForeignItem, Item, PatType};
 
 use super::SignatureProvider;
-use crate::{providers::BindgenResult, FunctionSignature};
-
-use crate::cli::{Cli, HeaderArgs};
-use crate::elf;
-use crate::generator;
-use crate::templates;
-
-pub fn run(cli: &Cli, args: &HeaderArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let functions: Vec<String> = elf::extract_function_symbols(&cli.lib_path)?
-        .into_iter()
-        .filter(|name| {
-            if cli.skipped_symbols.contains(name) {
-                tracing::info!("skipping symbol: {}", name);
-                return false;
-            }
-            true
-        })
-        .collect();
-
-    tracing::info!(
-        "found {} function symbols in {}",
-        functions.len(),
-        cli.lib_path.display(),
-    );
-
-    let provider = BindgenProvider::new(args.header_file.to_str().unwrap().to_string());
-    let bindgen_result = provider
-        .get_signatures(cli.lib_path.to_str().unwrap())
-        .unwrap_or_default();
-
-    tracing::info!(
-        "found {} function signatures in {}",
-        bindgen_result.signatures.len(),
-        args.header_file.display(),
-    );
-
-    let (known_stubs, unknown_stubs) =
-        generator::generate_function_stubs(&functions, &bindgen_result.signatures)?;
-
-    let lib_code = templates::generate_lib(&known_stubs, &unknown_stubs, &bindgen_result.bindings)?;
-
-    std::fs::write(cli.output_dir.join("dyll.rs"), lib_code.trim())?;
-
-    Ok(())
-}
+use crate::{signature::SignatureInfo, FunctionSignature};
 
 pub struct BindgenProvider {
     header_path: String,
@@ -60,13 +16,16 @@ impl BindgenProvider {
 }
 
 impl SignatureProvider for BindgenProvider {
-    fn get_signatures(&self, _so_path: &str) -> Result<BindgenResult, Box<dyn std::error::Error>> {
+    fn get_signatures(
+        &self,
+        _so_path: impl AsRef<str>,
+    ) -> Result<SignatureInfo, Box<dyn std::error::Error>> {
         self.get_signatures_from_bindgen()
     }
 }
 
 impl BindgenProvider {
-    pub fn get_signatures_from_bindgen(&self) -> Result<BindgenResult, Box<dyn std::error::Error>> {
+    pub fn get_signatures_from_bindgen(&self) -> Result<SignatureInfo, Box<dyn std::error::Error>> {
         let mut signatures = HashMap::new();
 
         // Use bindgen to generate bindings from the header
@@ -146,7 +105,7 @@ impl BindgenProvider {
             }
         }
 
-        Ok(BindgenResult {
+        Ok(SignatureInfo {
             signatures,
             bindings: bindings_parts.join("\n"),
         })

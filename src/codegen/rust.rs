@@ -1,10 +1,33 @@
-use quote::{format_ident, quote};
 use syn::{parse_str, Ident, Type};
 
 use crate::FunctionSignature;
 use std::collections::HashMap;
 
-pub fn generate_function_stubs(
+use quote::{format_ident, quote};
+
+use crate::signature::SignatureInfo;
+
+pub fn generate(
+    functions: &[String],
+    bindgen_result: &SignatureInfo,
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut content = String::new();
+
+    let (known_stubs, unknown_stubs) =
+        generate_function_stubs(&functions, &bindgen_result.signatures)?;
+
+    content.push_str("\n");
+    content.push_str(include_str!("./rustlib.tpl.rs"));
+    content.push_str("\n\n");
+    content.push_str(&known_stubs);
+    content.push_str("\n\n");
+    content.push_str(&unknown_stubs);
+    content.push_str("\n\n");
+    content.push_str(&bindgen_result.bindings);
+    Ok(content)
+}
+
+fn generate_function_stubs(
     functions: &[String],
     signatures: &HashMap<String, FunctionSignature>,
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
