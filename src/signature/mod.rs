@@ -8,6 +8,6 @@ pub trait SignatureProvider {
 
 #[derive(Debug, Default)]
 pub struct SignatureInfo {
-    pub signatures: std::collections::HashMap<String, FunctionSignature>,
+    pub signatures: std::collections::BTreeMap<String, FunctionSignature>,
     pub bindings: String,
 }

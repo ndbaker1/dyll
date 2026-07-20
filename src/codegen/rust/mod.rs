@@ -1,18 +1,18 @@
+use proc_macro2::TokenStream;
 use syn::{parse_str, Ident, Type};
 
 use crate::FunctionSignature;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use quote::{format_ident, quote};
 
 use crate::signature::SignatureInfo;
 
-pub fn generate(
-    bindgen_result: &SignatureInfo,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub fn generate(bindgen_result: &SignatureInfo) -> Result<String, Box<dyn std::error::Error>> {
     let mut content = String::new();
 
-    let (known_stubs, unknown_stubs) = generate_function_stubs(&bindgen_result.signatures)?;
+    let (known_stubs, unknown_stubs) =
+        generate_function_stubs(&bindgen_result.signatures, None, None, None)?;
 
     content.push_str("\n\n");
     content.push_str(include_str!("./rustlib.tpl.rs"));
@@ -26,7 +26,10 @@ pub fn generate(
 }
 
 fn generate_function_stubs(
-    signature_map: &HashMap<String, FunctionSignature>,
+    signature_map: &BTreeMap<String, FunctionSignature>,
+    stub_preamble: Option<TokenStream>,
+    func_preamble: Option<TokenStream>,
+    func_postamble: Option<TokenStream>,
 ) -> Result<(String, String), Box<dyn std::error::Error>> {
     let mut known_stubs = Vec::new();
 
@@ -56,7 +59,27 @@ fn generate_function_stubs(
 
         let return_type: Type = parse_str(&sig.return_type)?;
 
+        let stub_preamble = stub_preamble.clone().unwrap_or_else(|| {
+            quote! {}
+        });
+
+        let func_preamble = func_preamble.clone().unwrap_or_else(|| {
+            quote! {
+                let span = tracing::span!(tracing::Level::TRACE, stringify!(#func_name));
+                let _enter = span.enter();
+                tracing::trace!("@entry");
+            }
+        });
+
+        let func_postamble = func_postamble.clone().unwrap_or_else(|| {
+            quote! {
+                tracing::trace!("@exit");
+            }
+        });
+
         let stub_code = quote! {
+            #stub_preamble
+
             #[allow(unused)]
             pub mod #func_name {
                 use super::*;
@@ -68,15 +91,13 @@ fn generate_function_stubs(
 
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn #func_name(#(#args),*) -> #return_type {
-                let span = tracing::span!(tracing::Level::TRACE, stringify!(#func_name));
-                let _enter = span.enter();
-                tracing::trace!("@entry");
+                #func_preamble
                 let #func_name: extern "C" fn(#(#args),*) -> #return_type = unsafe { std::mem::transmute(get_sym(#func)) };
                 let ret = match unsafe { #func_name::HANDLE } {
                     Some(handler) => handler(#func_name, #(#params),*),
                     None => #func_name(#(#params),*),
                 };
-                tracing::trace!("@exit");
+                #func_postamble
                 ret
             }
         };

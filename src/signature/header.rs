@@ -1,5 +1,5 @@
 use quote::ToTokens;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use syn::{parse_str, FnArg::Typed, ForeignItem, Item, PatType};
 
 use super::SignatureProvider;
@@ -23,7 +23,7 @@ impl SignatureProvider for BindgenProvider {
 
 impl BindgenProvider {
     pub fn get_signatures_from_bindgen(&self) -> Result<SignatureInfo, Box<dyn std::error::Error>> {
-        let mut signatures = HashMap::new();
+        let mut signatures = BTreeMap::new();
 
         // Use bindgen to generate bindings from the header
         let bindings = bindgen::Builder::default()
@@ -47,7 +47,6 @@ impl BindgenProvider {
 
         for item in syntax_tree.items {
             match item {
-                // TODO: i dont really love how this is done.
                 Item::ForeignMod(ref foreign_mod) => {
                     // Check if it's extern "C"
                     let is_extern_c = foreign_mod
@@ -56,6 +55,7 @@ impl BindgenProvider {
                         .as_ref()
                         .map(|n| n.value() == "C")
                         .unwrap_or(false);
+
                     if is_extern_c {
                         // Extract function signatures from extern "C" blocks
                         for foreign_item in &foreign_mod.items {
@@ -92,12 +92,12 @@ impl BindgenProvider {
                         }
                     } else {
                         // Non-C extern blocks go into bindings
-                        bindings_parts.push(format!("{}", quote::quote!(#item)));
+                        bindings_parts.push(item.to_token_stream().to_string());
                     }
                 }
                 _ => {
                     // Other items like type definitions, consts, etc.
-                    bindings_parts.push(format!("{}", quote::quote!(#item)));
+                    bindings_parts.push(item.to_token_stream().to_string());
                 }
             }
         }
