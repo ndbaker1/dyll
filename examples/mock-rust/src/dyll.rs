@@ -89,7 +89,7 @@ pub mod add {
     use super::*;
     pub static mut HANDLE: Option<
         &'static dyn Fn(
-            extern "C" fn(
+            unsafe extern "C" fn(
                 a: ::core::ffi::c_int,
                 b: ::core::ffi::c_int,
             ) -> ::core::ffi::c_int,
@@ -99,7 +99,7 @@ pub mod add {
     > = None;
     pub fn register_handler(
         handle: &'static impl Fn(
-            extern "C" fn(
+            unsafe extern "C" fn(
                 a: ::core::ffi::c_int,
                 b: ::core::ffi::c_int,
             ) -> ::core::ffi::c_int,
@@ -135,7 +135,7 @@ pub mod add_and_double {
     use super::*;
     pub static mut HANDLE: Option<
         &'static dyn Fn(
-            extern "C" fn(
+            unsafe extern "C" fn(
                 a: ::core::ffi::c_int,
                 b: ::core::ffi::c_int,
             ) -> ::core::ffi::c_int,
@@ -145,7 +145,7 @@ pub mod add_and_double {
     > = None;
     pub fn register_handler(
         handle: &'static impl Fn(
-            extern "C" fn(
+            unsafe extern "C" fn(
                 a: ::core::ffi::c_int,
                 b: ::core::ffi::c_int,
             ) -> ::core::ffi::c_int,
@@ -179,8 +179,10 @@ pub unsafe extern "C" fn add_and_double(
 #[allow(unused)]
 pub mod print_hello {
     use super::*;
-    pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn() -> ()) -> ()> = None;
-    pub fn register_handler(handle: &'static impl Fn(extern "C" fn() -> ()) -> ()) {
+    pub static mut HANDLE: Option<&'static dyn Fn(unsafe extern "C" fn() -> ()) -> ()> = None;
+    pub fn register_handler(
+        handle: &'static impl Fn(unsafe extern "C" fn() -> ()) -> (),
+    ) {
         unsafe { HANDLE = Some(handle) }
     }
 }
@@ -205,13 +207,13 @@ pub mod set_five {
     use super::*;
     pub static mut HANDLE: Option<
         &'static dyn Fn(
-            extern "C" fn(ptr: *mut ::core::ffi::c_int) -> (),
+            unsafe extern "C" fn(ptr: *mut ::core::ffi::c_int) -> (),
             *mut ::core::ffi::c_int,
         ) -> (),
     > = None;
     pub fn register_handler(
         handle: &'static impl Fn(
-            extern "C" fn(ptr: *mut ::core::ffi::c_int) -> (),
+            unsafe extern "C" fn(ptr: *mut ::core::ffi::c_int) -> (),
             *mut ::core::ffi::c_int,
         ) -> (),
     ) {

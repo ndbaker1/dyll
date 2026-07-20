@@ -14,6 +14,9 @@ fn init() {
 
     print_hello::register_handler(&|print_hello| {
         tracing::info!("hello from mock!");
-        print_hello();
+        tracing::info!("calling original mock..");
+        unsafe {
+            print_hello();
+        }
     });
 }

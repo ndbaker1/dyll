@@ -83,8 +83,8 @@ fn generate_function_stubs(
             #[allow(unused)]
             pub mod #func_name {
                 use super::*;
-                pub static mut HANDLE: Option<&'static dyn Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type> = None;
-                pub fn register_handler(handle: &'static impl Fn(extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type) {
+                pub static mut HANDLE: Option<&'static dyn Fn(unsafe extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type> = None;
+                pub fn register_handler(handle: &'static impl Fn(unsafe extern "C" fn(#(#args),*) -> #return_type, #(#types),*) -> #return_type) {
                     unsafe { HANDLE = Some(handle) }
                 }
             }
